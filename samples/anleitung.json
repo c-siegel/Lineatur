@@ -1,0 +1,511 @@
+{
+  "id": "anleitung",
+  "title": "So arbeiten Sie mit Lineatur",
+  "subtitle": "Vom leeren Blatt bis zur fertigen Datei",
+  "lang": "de",
+  "format": "a4",
+  "layoutMode": "flow",
+  "font": "Open Sans",
+  "fontSize": 11,
+  "accent": "gray",
+  "nameLine": false,
+  "exam": false,
+  "pageFrame": {
+    "style": "none",
+    "color": "gray"
+  },
+  "pageTint": "none",
+  "logo": "",
+  "numbering": {
+    "format": "1",
+    "style": "filled",
+    "restart": false
+  },
+  "gaps": {
+    "style": "line"
+  },
+  "blocks": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "Lineatur setzt Arbeitsblätter mit Typst: Sie bauen das Blatt aus Bausteinen zusammen, Lineatur kümmert sich um Satz, Nummerierung und Lösungsblatt. Diese Anleitung ist selbst mit Lineatur gesetzt. Unter „Vorlagen“ können Sie sie als Arbeitsblatt öffnen und nachsehen, wie sie gebaut ist."
+    },
+    {
+      "id": "h-weg",
+      "type": "heading",
+      "level": 1,
+      "text": "Der Weg zum fertigen Arbeitsblatt"
+    },
+    {
+      "id": "t-weg",
+      "type": "table",
+      "title": "",
+      "rows": "Schritt | Wo | Was Sie tun\n1 | Übersicht | „Neues Arbeitsblatt“ anlegen oder unter „Vorlagen“ eine eigene Kopie starten. Eigene Vorlagen importieren Sie dort als JSON oder speichern ein Blatt über ⋯ → „Als Vorlage speichern“.\n2 | Dokument → Infos | Titel, Fach, Klassenstufe, Klassenname und Datum eintragen. Den Titel können Sie auch direkt oben in der Kopfzeile ändern.\n3 | Dokument → Seite | Format (A4, A5-Broschüre, Folie), Layout (Raster oder Fluss), Ränder und Fußzeile festlegen. Unter „Seitendesign → Eigenes Design“ wählen Sie Farben, eine Form, ein Logo und eine Kopfzeile.\n4 | Dokument → Inhalte | Schrift, Schriftgröße, Akzentfarbe, Lückenstil und Aufgabennummerierung wählen.\n5 | Bausteine | Einen Baustein anklicken oder auf die Seite ziehen. Im Raster rastet er ein, mit gedrückter Alt-Taste lässt er sich frei platzieren.\n6 | Inspektor (rechts) | Inhalt, Punkte, Musterlösung, Rahmen und Lizenz des ausgewählten Bausteins bearbeiten.\n7 | Arbeitsblatt / Lösung | Oben umschalten. Die Lösungsansicht zeigt alle Antworten in Korrekturrot.\n8 | Herunterladen | Das passende Format wählen, siehe „Welche Datei wofür?“.",
+      "header": "row",
+      "look": "zebra",
+      "color": "gray",
+      "rowHeight": 0,
+      "widths": "1, 3, 9"
+    },
+    {
+      "id": "i-speichern",
+      "type": "infobox",
+      "title": "Gespeichert wird automatisch, und nur hier",
+      "text": "Lineatur legt jedes Blatt beim Bearbeiten in Ihrem Browser ab (in der Desktop-App im Ordner „Lineatur-Daten“ neben der Programmdatei). Es gibt kein Konto und keine Cloud. Für eine Sicherung oder ein anderes Gerät exportieren Sie das Blatt als JSON.",
+      "color": "sky"
+    },
+    {
+      "id": "h-loesung",
+      "type": "heading",
+      "level": 1,
+      "text": "Lösungen gleich mit anlegen"
+    },
+    {
+      "id": "t-loesung",
+      "type": "text",
+      "text": "Lücken in Lückentexten und Tabellen schreiben Sie in doppelte eckige Klammern, zum Beispiel [[Verdunstung]]. Mehrere richtige Schreibweisen trennen Sie mit einem senkrechten Strich: [[Wolke|Wolken]].\nLinien und andere Bausteine mit „Als Aufgabe“ haben ein Feld „Musterlösung“. Auf dem Lösungsblatt ersetzt es die Schreiblinien. **Fett** und *kursiv* schreiben Sie mit Sternchen.\nBei Multiple Choice haken Sie die richtigen Antworten an. Kreisläufe, Reihenfolgen, Zuordnungen und Rätsel füllt Lineatur auf dem Lösungsblatt selbst aus."
+    },
+    {
+      "id": "h-dateien",
+      "type": "heading",
+      "level": 1,
+      "text": "Welche Datei wofür?"
+    },
+    {
+      "id": "t-dateien",
+      "type": "table",
+      "title": "",
+      "rows": "Format | Wofür | Gut zu wissen\nPDF | Drucken und austeilen | Das Blatt so, wie es auf Papier aussieht.\nPDF – Lösungsblatt | Kontrolle, Selbstkontrolle, Vertretung | Gleicher Inhalt, alle Antworten eingetragen.\nPDF – Broschüre | A5-Hefte aus gefalteten A4-Bögen | Nur beim Format „Broschüre“. Beidseitig drucken, an der kurzen Kante wenden, falten, heften.\nDigital (HTML, Beta) | Moodle, Wikis, WordPress, Browser | Noch in Erprobung. Eine einzige Datei, interaktiv und mit Selbstkontrolle; Formeln, Graphen, Rätsel und Diagramme erscheinen als Bild. Die Lösungen stecken in der Datei: zum Üben, nicht für Prüfungen.\nJSON | Sichern, weitergeben, weiterbearbeiten | Die bearbeitbare Dokumentdatei. In der Übersicht über „JSON importieren…“ wieder öffnen.\nTypst (.typ) | Für Entwickler:innen | Der Satzcode, aus dem Lineatur die Seiten erzeugt: Herunterladen → „Typst-Quelltext zeigen“. Bilder und Schriften sind nicht enthalten.",
+      "header": "row",
+      "look": "zebra",
+      "color": "gray",
+      "rowHeight": 0,
+      "widths": "3, 4, 7"
+    },
+    {
+      "id": "i-mehrere",
+      "type": "infobox",
+      "title": "Mehrere Blätter auf einmal",
+      "text": "In der Übersicht erscheint auf jedem Vorschaubild oben links ein Kreis. Markieren Sie damit mehrere Blätter und wählen Sie unter „Aktionen“: als PDF exportieren (mehrere Blätter kommen als ZIP, auf Wunsch mit Lösungsblättern), als JSON exportieren, duplizieren, Metadaten ändern oder in eine Sammlung legen.",
+      "color": "yellow"
+    },
+    {
+      "id": "bz-h",
+      "type": "heading",
+      "level": 1,
+      "text": "Alle Bausteine"
+    },
+    {
+      "id": "bz-intro",
+      "type": "text",
+      "text": "Dieselben Erklärungen finden Sie im Editor: Wählen Sie einen Baustein aus und klicken Sie im Inspektor rechts auf das Fragezeichen. Dort fügt „Beispiel einfügen“ auch gleich ein fertiges Beispiel ein."
+    },
+    {
+      "id": "bz-g-basic",
+      "type": "heading",
+      "level": 2,
+      "text": "Grundlagen"
+    },
+    {
+      "id": "bz-heading",
+      "type": "infobox",
+      "title": "Überschrift",
+      "text": "Gliedert das Blatt in Abschnitte und Unterabschnitte. Überschriften erscheinen im Inhaltsverzeichnis und als Lesezeichen im PDF.\nSo geht es: Ebene „Abschnitt“ oder „Unterabschnitt“ wählen. Die Nummerierung (1. / 1.1) schalten Sie für alle Überschriften unter Dokument → Inhalte → Überschriften ein.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-text",
+      "type": "infobox",
+      "title": "Text",
+      "text": "Erklärungen, Einleitungen und Arbeitsanweisungen. Mit „Als Aufgabe“ wird der Text selbst zur nummerierten Aufgabe mit Punkten. Mit Größe „Titel“, mittig und fett wird daraus auch der Titel einer eigenen Titelseite, zusammen mit Bild (Logos), Linien („Name:“) und QR-Code.\nSo geht es: Ein Zeilenumbruch im Feld ist auch auf dem Blatt ein Zeilenumbruch. Formeln stehen zwischen Dollarzeichen. Einzelne Wörter werden mit **zwei Sternchen** fett und mit *einem Sternchen* kursiv. Größe (klein bis Titel), Ausrichtung, fett und kursiv in den Einstellungen gelten für den ganzen Baustein.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-text-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Die Fläche eines **Kreises** ist $A = pi r^2$.\nSetze für *r* den Radius ein.",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-toc",
+      "type": "infobox",
+      "title": "Inhaltsverzeichnis",
+      "text": "Listet alle Überschriften des Blatts mit Seitenzahlen auf, sinnvoll bei Heften und langen Materialien.\nSo geht es: Kein Inhalt nötig: Es füllt sich aus den Überschriften-Bausteinen. Einzelne Überschriften nehmen Sie in deren Einstellungen aus.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-image",
+      "type": "infobox",
+      "title": "Bild",
+      "text": "Fotos, Grafiken und Skizzen. „Freie Bilder suchen“ findet offen lizenzierte Bilder und trägt den Bildnachweis selbst ein.\nSo geht es: Eigene Bilder hochladen oder suchen. Breite in Prozent der Bausteinbreite; im Raster bestimmt die Breite des Bausteins die Bildgröße.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-lines",
+      "type": "infobox",
+      "title": "Linien",
+      "text": "Schreibraum für freie Antworten: liniert, Grundschul-Lineatur mit vier Linien oder gepunktet. Mit „Als Aufgabe“ und einem Arbeitsauftrag wird daraus eine nummerierte Frage mit Antwortlinien und Punkten.\nSo geht es: Anzahl und Abstand einstellen. Im Raster werden es mehr Linien, wenn Sie den Baustein nach unten größer ziehen.\nAuf dem Lösungsblatt: Steht eine Musterlösung im Feld, ersetzt sie auf dem Lösungsblatt die Linien.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-squares",
+      "type": "infobox",
+      "title": "Kästchen",
+      "text": "Rechenkästchen oder Punktraster, etwa für Nebenrechnungen und Skizzen. Mit „Als Aufgabe“ bekommt das Feld einen Arbeitsauftrag, eine Nummer und Punkte.\nSo geht es: Zeilen und Kästchengröße einstellen. Im Raster werden es mehr Zeilen, wenn Sie den Baustein größer ziehen.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-qr",
+      "type": "infobox",
+      "title": "QR-Code",
+      "text": "Verweist auf eine Webseite, ein Video oder einen Text, den die Schülerinnen und Schüler mit dem Handy öffnen.\nSo geht es: Link oder Text eintragen, dazu eine kurze Beschriftung, damit klar ist, wohin der Code führt.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-qr-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "https://de.wikipedia.org/wiki/Wasserkreislauf",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-score",
+      "type": "infobox",
+      "title": "Punktezähler",
+      "text": "Ein Feld „Punkte: ___ / Gesamt“ zum Eintragen der erreichten Punkte.\nSo geht es: Ohne Maximum steht dort die Summe der Punkte aller Aufgaben. Ein eigenes Maximum überschreibt sie.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-assessment",
+      "type": "infobox",
+      "title": "Bewertung & Notenschlüssel",
+      "text": "Für Klassenarbeiten: eine Tabelle mit den Punkten je Aufgabe und ein Notenschlüssel aus der Gesamtpunktzahl.\nSo geht es: Je Note den Mindestanteil der Gesamtpunkte in Prozent eintragen. Darunter zeigt Lineatur, ab wie vielen Punkten welche Note gilt.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-pagebreak",
+      "type": "infobox",
+      "title": "Seitenumbruch",
+      "text": "Nur im Fluss-Layout: Alles danach beginnt auf einer neuen Seite.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-table",
+      "type": "infobox",
+      "title": "Tabelle",
+      "text": "Tabellen zum Lesen oder Ausfüllen, mit Kopfzeile und Kopfspalte.\nSo geht es: Eine Zeile im Feld ist eine Tabellenzeile, die Zellen trennt ein senkrechter Strich |. Eine leere Zelle bleibt zum Ausfüllen frei, [[Antwort]] ist eine Lücke mit Lösung. Spaltenbreiten als Verhältnis, z. B. 2;1;1.\nAuf dem Lösungsblatt: Die Antworten aus [[…]] erscheinen in den Zellen; leere Zellen bleiben leer.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-table-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": " | Masse in g | Volumen in cm³\nEisen | 79 | [[10]]\nHolz | [[6]] | 10",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-tchart",
+      "type": "infobox",
+      "title": "Gegenüberstellung",
+      "text": "Zwei bis vier Spalten mit Schreiblinien, etwa „Gemeinsamkeiten | Unterschiede“ oder „Pro | Contra“.\nSo geht es: Spaltenköpfe mit | trennen. In der Musterlösung steht pro Zeile je ein Eintrag für jede Spalte, ebenfalls mit | getrennt.\nAuf dem Lösungsblatt: Die Musterlösung füllt die Spalten Zeile für Zeile.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-tchart-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Pro | Contra\nmehr Freizeit | weniger Geld",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-infobox",
+      "type": "infobox",
+      "title": "Infokasten",
+      "text": "Hebt Merksätze, Definitionen und Tipps farbig hervor.\nSo geht es: Überschrift optional. Im Text gehen Zeilenumbrüche, Formeln zwischen Dollarzeichen sowie **fett** und *kursiv*.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-infobox-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "**Dichte** = Masse : Volumen, also $rho = m / V$.",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-g-exercise",
+      "type": "heading",
+      "level": 2,
+      "text": "Aufgaben"
+    },
+    {
+      "id": "bz-choice",
+      "type": "infobox",
+      "title": "Multiple-Choice",
+      "text": "Eine Frage mit Antworten zum Ankreuzen; mehrere richtige Antworten sind möglich.\nSo geht es: Jede Antwort steht in einem eigenen Feld; der Haken davor markiert die richtigen.\nAuf dem Lösungsblatt: Die richtigen Antworten sind angekreuzt und hervorgehoben.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-cloze",
+      "type": "infobox",
+      "title": "Lückentext",
+      "text": "Ein Text mit Lücken zum Ausfüllen, auf Wunsch mit gemischtem Wortspeicher darüber.\nSo geht es: Lücken stehen in doppelten eckigen Klammern. Gelten mehrere Antworten als richtig, trennen Sie sie mit |; in den Wortspeicher kommt die erste.\nAuf dem Lösungsblatt: Die Lücken sind mit der Antwort gefüllt; mehrere richtige Antworten stehen durch / getrennt.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-cloze-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Wasser [[verdunstet]] und bildet [[Wolken|Wolke]].",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-sorting",
+      "type": "infobox",
+      "title": "Sortieraufgabe",
+      "text": "Schritte oder Ereignisse in die richtige Reihenfolge bringen; auf dem Blatt erscheinen sie gemischt mit Kästchen zum Nummerieren.\nSo geht es: Die Einträge in der RICHTIGEN Reihenfolge eintragen, einer pro Zeile. Lineatur mischt sie selbst; „Neu mischen“ ergibt eine andere Anordnung.\nAuf dem Lösungsblatt: In den Kästchen steht die richtige Nummer.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-sorting-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Wasser erhitzen\nTeebeutel hineinhängen\nfünf Minuten warten",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-matching",
+      "type": "infobox",
+      "title": "Wörter zuordnen",
+      "text": "Begriffe links und rechts durch Linien verbinden, etwa Vokabeln oder Begriff und Erklärung.\nSo geht es: Ein Paar pro Zeile, links und rechts mit = getrennt. Die rechte Seite erscheint gemischt.\nAuf dem Lösungsblatt: Die richtigen Verbindungslinien sind eingezeichnet.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-matching-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Hund = dog\nKatze = cat",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-cycle",
+      "type": "infobox",
+      "title": "Kreislauf",
+      "text": "Kästchen auf einem Kreis, durch Pfeile verbunden, etwa Wasser- oder Stoffkreisläufe.\nSo geht es: Einträge im Uhrzeigersinn, oben beginnend, einer pro Zeile. [[Eintrag]] lässt das Kästchen zum Ausfüllen leer.\nAuf dem Lösungsblatt: Die leeren Kästchen sind ausgefüllt.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-cycle-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Verdunstung\n[[Kondensation]]\nNiederschlag\n[[Versickerung]]",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-chain",
+      "type": "infobox",
+      "title": "Reihenfolge (Pfeile)",
+      "text": "Kästchen in einer Reihe, durch Pfeile verbunden, etwa Abläufe oder Nahrungsketten.\nSo geht es: Einträge der Reihe nach, einer pro Zeile. [[Eintrag]] lässt das Kästchen leer; mit „Bausteine“ stehen die gesuchten Einträge gemischt darüber.\nAuf dem Lösungsblatt: Die leeren Kästchen sind ausgefüllt.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-chain-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Gras\n[[Heuschrecke]]\nFrosch\n[[Storch]]",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-g-puzzle",
+      "type": "heading",
+      "level": 2,
+      "text": "Rätsel"
+    },
+    {
+      "id": "bz-wordsearch",
+      "type": "infobox",
+      "title": "Wortsuchrätsel",
+      "text": "Wörter in einem Buchstabengitter finden.\nSo geht es: Wörter durch Komma oder Zeilenumbruch trennen. Passen nicht alle hinein, nennt der Baustein sie oben in seinen Einstellungen; dann das Raster vergrößern oder neu mischen.\nAuf dem Lösungsblatt: Die versteckten Wörter sind farbig markiert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-wordsearch-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Sonne, Mond, Stern, Komet",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-crossword",
+      "type": "infobox",
+      "title": "Kreuzworträtsel",
+      "text": "Ein Kreuzworträtsel mit Hinweisen waagerecht und senkrecht, aus Ihrer Wortliste erzeugt.\nSo geht es: Ein Wort pro Zeile, dahinter nach einem Doppelpunkt der Hinweis. Wörter, die sich mit keinem anderen kreuzen, nennt der Baustein in seinen Einstellungen.\nAuf dem Lösungsblatt: Alle Felder sind ausgefüllt.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-crossword-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "MERKUR: Der sonnennächste Planet\nMARS: Der rote Planet",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-anagram",
+      "type": "infobox",
+      "title": "Anagramm",
+      "text": "Wörter mit vertauschten Buchstaben, die richtig geschrieben werden sollen.\nSo geht es: Wörter durch Komma oder Zeilenumbruch trennen; Lineatur vertauscht die Buchstaben.\nAuf dem Lösungsblatt: Die richtigen Wörter stehen in den Lücken.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-anagram-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "Apfel, Birne, Pflaume",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-g-mint",
+      "type": "heading",
+      "level": 2,
+      "text": "MINT"
+    },
+    {
+      "id": "bz-arithmetic",
+      "type": "infobox",
+      "title": "Rechenaufgaben",
+      "text": "Erzeugt Übungsaufgaben zu den vier Grundrechenarten.\nSo geht es: „Von“ und „Bis“ begrenzen die Zahlen, mit denen gerechnet wird, nicht die Ergebnisse. Divisionen gehen immer auf; dort liegen Teiler und Ergebnis im Bereich. „Neue Aufgaben“ würfelt andere Zahlen.\nAuf dem Lösungsblatt: Die Ergebnisse stehen in den Lücken.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-formula",
+      "type": "infobox",
+      "title": "Formel",
+      "text": "Eine abgesetzte Formel in schönem Formelsatz.\nSo geht es: Typst-Mathematik oder gängiges LaTeX. Brüche als (a)/(b) oder \\frac{a}{b}, Wurzeln als sqrt(x), Hochzahlen mit ^. Eine Formel mit Fehler erscheint als einfacher Text.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-formula-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "x = (-b plus.minus sqrt(b^2 - 4 a c)) / (2 a)",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-function",
+      "type": "infobox",
+      "title": "Funktionsgraph",
+      "text": "Koordinatensystem mit Funktionsgraphen, Punkten und Figuren, auf Wunsch auf Kästchenpapier.\nSo geht es: Eine Funktion pro Zeile mit Dezimalkomma, Malpunkt optional. Punkte als A(1|2), einer pro Zeile. x- und y-Bereich legen den Ausschnitt fest.\nAuf dem Lösungsblatt: Mit „Graphen: nur auf dem Lösungsblatt“ sehen die Schülerinnen und Schüler ein leeres Koordinatensystem und zeichnen selbst.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-function-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "f(x) = 0,5x^2 - 1\ng(x) = sin(x)",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-valuetable",
+      "type": "infobox",
+      "title": "Wertetabelle",
+      "text": "Eine Wertetabelle zu einer Funktion, zum Ausfüllen oder vorgegeben.\nSo geht es: Funktion wie beim Funktionsgraphen, x-Werte durch Semikolon getrennt.\nAuf dem Lösungsblatt: Bei „zum Ausfüllen“ stehen die y-Werte auf dem Lösungsblatt.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-valuetable-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "f(x) = 2x + 1\n-2; -1; 0; 1; 2",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-tree",
+      "type": "infobox",
+      "title": "Baumdiagramm",
+      "text": "Baumdiagramme für mehrstufige Zufallsversuche, mit Pfadwahrscheinlichkeiten.\nSo geht es: Jeder Ast steht in einer eigenen Zeile als „Beschriftung: Wahrscheinlichkeit“. Äste der nächsten Stufe rücken Sie mit Leerzeichen ein. Brüche werden beim Multiplizieren gekürzt.\nAuf dem Lösungsblatt: Kästchen zum Ausfüllen und Pfadwahrscheinlichkeiten „zum Berechnen“ sind ausgefüllt.",
+      "color": "gray"
+    },
+    {
+      "id": "bz-tree-ex",
+      "type": "code",
+      "title": "Beispiel",
+      "lang": "text",
+      "code": "rot: 2/5\n  rot: 1/4\n  blau: 3/4\nblau: 3/5\n  rot: 2/4\n  blau: 2/4",
+      "lineNumbers": false,
+      "size": 9
+    },
+    {
+      "id": "bz-code",
+      "type": "infobox",
+      "title": "Quellcode",
+      "text": "Programmcode mit Syntaxhervorhebung und Zeilennummern.\nSo geht es: Sprache wählen und den Code einfügen; Einrückungen bleiben erhalten.\nAuf dem Lösungsblatt: Bleibt auf dem Lösungsblatt unverändert.",
+      "color": "gray"
+    },
+    {
+      "id": "h-test",
+      "type": "heading",
+      "level": 1,
+      "text": "Kurz geprüft"
+    },
+    {
+      "id": "q-format",
+      "type": "choice",
+      "text": "Sie möchten eine Übung in Moodle hochladen, die sich selbst auswertet. Welches Format wählen Sie?",
+      "points": 1,
+      "difficulty": 1,
+      "options": [
+        {
+          "text": "PDF",
+          "correct": false
+        },
+        {
+          "text": "Digital (HTML, Beta)",
+          "correct": true
+        },
+        {
+          "text": "JSON",
+          "correct": false
+        }
+      ]
+    },
+    {
+      "id": "q-cloze",
+      "type": "cloze",
+      "text": "Lineatur speichert Ihre Blätter nur auf diesem Gerät. Um ein Blatt auf einem anderen Rechner weiterzubearbeiten, exportieren Sie es als [[JSON]].",
+      "points": 1,
+      "difficulty": 1
+    }
+  ]
+}

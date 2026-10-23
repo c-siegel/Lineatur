@@ -1,0 +1,10 @@
+node_modules/
+out/
+
+# local tooling and scratch files
+.claude/
+scripts/_*.mjs
+*.log
+.DS_Store
+Thumbs.db
+dist/

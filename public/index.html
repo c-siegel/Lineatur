@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lineatur</title>
+  <link rel="icon" href="favicon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-view="dashboard">
+  <!-- ============================================================ dashboard -->
+  <div id="dashboard" class="view dash">
+    <header class="topbar dash-top">
+      <a class="brand" href="#/" title="Lineatur – Arbeitsblätter, gesetzt mit Typst"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 3h16l7 7v19H5z" fill="currentColor"/><path d="M21 3v7h7z" fill="#8fb8e0"/><path d="M8 15h17M8 21h17" stroke="#8fb8e0" stroke-width="1.6"/><path d="M11 3v26" stroke="#c8372d" stroke-width="2"/></svg><span class="brand-name">lineatur</span></a>
+      <form id="dash-search" class="dash-search" role="search">
+        <span data-icon="search"></span>
+        <input id="dash-q" type="search" placeholder="Materialien durchsuchen" aria-label="Materialien durchsuchen">
+        <button class="dash-searchbtn" type="submit">Suchen</button>
+      </form>
+      <div id="dash-filters" class="dash-filters" aria-label="Filter"></div>
+    </header>
+    <div class="dash-body">
+      <nav id="dash-nav" class="dash-nav" aria-label="Materialien"></nav>
+      <main id="dash-main" class="dash-main"></main>
+    </div>
+    <div id="dash-pop" class="dash-pop" hidden></div>
+    <div id="dash-busy" class="dash-busy" role="status" hidden></div>
+    <input id="dash-import" type="file" accept="application/json,.json" hidden>
+  </div>
+
+  <!-- =============================================================== editor -->
+  <div id="editor-view" class="view">
+  <header class="topbar">
+    <div class="tb-left">
+      <a class="brand" href="#/" title="Zurück zu meinen Dokumenten"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M5 3h16l7 7v19H5z" fill="currentColor"/><path d="M21 3v7h7z" fill="#8fb8e0"/><path d="M8 15h17M8 21h17" stroke="#8fb8e0" stroke-width="1.6"/><path d="M11 3v26" stroke="#c8372d" stroke-width="2"/></svg><span class="brand-name">lineatur</span></a>
+      <input id="tb-title" class="tb-title" type="text" placeholder="Ohne Titel" aria-label="Titel des Arbeitsblatts" title="Klicken zum Umbenennen" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="tb-tools">
+      <button id="btn-undo" class="tb-btn" data-icon="undo" title="Rückgängig (Strg+Z)" aria-label="Rückgängig" disabled></button>
+      <button id="btn-redo" class="tb-btn" data-icon="redo" title="Wiederholen (Strg+Y)" aria-label="Wiederholen" disabled></button>
+      <div class="tb-group" role="group" aria-label="Zoom">
+        <button id="zoom-out" class="tb-btn" data-icon="minus" title="Verkleinern" aria-label="Verkleinern"></button>
+        <button id="zoom-val" class="tb-btn tb-zoom" title="Zoom zurücksetzen">100%</button>
+        <button id="zoom-in" class="tb-btn" data-icon="plus" title="Vergrößern" aria-label="Vergrößern"></button>
+        <button id="btn-spreads" class="tb-btn" data-icon="book" title="Doppelseiten (Broschüre)" aria-label="Doppelseiten anzeigen" hidden></button>
+      </div>
+      <label class="tb-select" title="Schriftart"><span data-icon="font"></span><select id="tb-font" aria-label="Schriftart"></select></label>
+      <label class="tb-select" title="Schriftgröße"><span data-icon="size"></span><select id="tb-size" aria-label="Schriftgröße"></select></label>
+      <div class="tb-seg" role="tablist" aria-label="Ansicht">
+        <button id="mode-student" class="on" role="tab" title="Arbeitsblatt"><span data-icon="doc"></span>Arbeitsblatt</button>
+        <button id="mode-solution" role="tab" title="Lösungsblatt"><span data-icon="check"></span>Lösung</button>
+      </div>
+    </div>
+    <div class="tb-right">
+      <span id="savestate" class="savestate" title="Automatisch und privat in diesem Browser gespeichert"></span>
+      <div class="menu">
+        <button id="btn-download" class="tb-primary" aria-haspopup="menu" aria-expanded="false"><span data-icon="download"></span>Herunterladen<span data-icon="chevron"></span></button>
+        <div id="download-menu" class="menu-pop" role="menu" hidden>
+          <button id="btn-pdf" role="menuitem"><b>PDF</b><small>Arbeitsblatt</small></button>
+          <button id="btn-pdf-sol" role="menuitem"><b>PDF – Lösungsblatt</b><small>mit Lösungen</small></button>
+          <button id="btn-booklet" class="booklet-only" role="menuitem" hidden><b>PDF – Broschüre (A4 zum Falten)</b><small>beidseitig drucken, an der kurzen Kante wenden</small></button>
+          <button id="btn-booklet-sol" class="booklet-only" role="menuitem" hidden><b>PDF – Broschüre, Lösungsblatt</b><small>mit Lösungen, zum Falten</small></button>
+          <button id="btn-html" role="menuitem"><b>Digital (HTML) <span class="beta" title="Noch in Erprobung: nicht jeder Baustein ist interaktiv, manche erscheinen als Bild">Beta</span></b><small>interaktiv, für Moodle, Wikis, WordPress</small></button>
+          <hr>
+          <button id="btn-json" role="menuitem"><b>JSON</b><small>bearbeitbare Dokumentdatei</small></button>
+          <button id="btn-src" role="menuitem"><b>Typst-Quelltext zeigen</b><small>für Entwickler:innen</small></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app">
+    <nav class="rail" aria-label="Bereiche">
+      <a class="rail-btn" href="#/" data-icon="home" title="Meine Dokumente">Übersicht</a>
+      <span class="rail-sep"></span>
+      <button class="rail-btn on" data-panel="blocks" data-icon="blocks">Bausteine</button>
+      <button class="rail-btn" data-panel="layers" data-icon="layers">Ebenen</button>
+      <button class="rail-btn" data-panel="document" data-icon="settings">Dokument</button>
+      <span class="rail-fill"></span>
+      <button id="btn-collapse" class="rail-btn small" data-icon="sidebar" title="Seitenleiste ausblenden" aria-label="Seitenleiste ausblenden"></button>
+    </nav>
+
+    <aside id="panel" class="panel">
+      <!-- blocks -->
+      <section class="pane" data-pane="blocks">
+        <h2>Bausteine</h2>
+        <label class="search"><span data-icon="search"></span><input id="block-search" type="search" placeholder="Baustein suchen" aria-label="Baustein suchen"></label>
+        <div id="block-filter" class="filter" role="tablist" aria-label="Kategorie"></div>
+        <div id="palette" class="palette"></div>
+      </section>
+
+      <!-- layers -->
+      <section class="pane" data-pane="layers" hidden>
+        <h2>Ebenen <span class="hint inline">Klick wählt aus · Doppelklick bearbeitet · Ziehen ändert die Reihenfolge (oben liegt vorne)</span></h2>
+        <label class="search"><span data-icon="search"></span><input id="layer-search" type="search" placeholder="Suchen…" aria-label="Ebenen durchsuchen"></label>
+        <ul id="layers" class="layers"></ul>
+      </section>
+
+      <!-- document settings (built in app.js: renderDocPanel) -->
+      <section class="pane" data-pane="document" hidden>
+        <h2>Dokumenteinstellungen</h2>
+        <div class="tabs" role="tablist">
+          <button class="tab on" data-tab="info" role="tab">Infos</button>
+          <button class="tab" data-tab="page" role="tab">Seite</button>
+          <button class="tab" data-tab="content" role="tab">Inhalte</button>
+        </div>
+        <div id="docpanel"></div>
+      </section>
+    </aside>
+
+    <main id="stage" class="stage" aria-label="Seiten">
+      <div class="pagebar">
+        <span id="status" class="status">–</span>
+        <span class="tools">
+          <label class="inline free-only"><input id="show-grid" type="checkbox" autocomplete="off"> Rasterlinien</label>
+          <label class="inline free-only" title="Überlappende Bausteine orange, über den Seitenrand hinausragende rot markieren"><input id="show-warnings" type="checkbox" checked autocomplete="off"> Warnungen</label>
+          <button id="btn-addpage" class="btn small" title="Seite hinzufügen (im Fluss-Layout: Seitenumbruch am Ende)"><span data-icon="plus"></span>Seite</button>
+          <button id="btn-rmpage" class="btn small" title="Letzte Seite entfernen (muss leer sein)"><span data-icon="minus"></span>Seite</button>
+          <button id="btn-arrange" class="btn small free-only" title="Alle Bausteine in voller Breite untereinander anordnen">Automatisch anordnen</button>
+        </span>
+      </div>
+      <div id="error" class="error" hidden></div>
+      <div id="canvas" class="canvas">
+        <svg id="svgdefs" class="svgdefs" aria-hidden="true"></svg>
+        <div id="pages" class="pages"></div>
+        <div id="overlay" class="overlay">
+          <div id="guides"></div>
+          <div id="rects"></div>
+        </div>
+      </div>
+      <pre id="source" class="source" hidden></pre>
+      <div id="snapstate" class="snapstate free-only" role="status">Rastet am Raster ein · Alt halten für freie Platzierung</div>
+    </main>
+
+    <aside id="inspector" class="inspector" aria-label="Ausgewählter Baustein" hidden></aside>
+  </div>
+  </div>
+
+  <dialog id="dlg-images" class="dialog wide" aria-labelledby="img-title">
+    <div class="dlg-head">
+      <h2 id="img-title">Freie Bilder</h2>
+      <button class="iconbtn" data-close data-icon="close" aria-label="Schließen"></button>
+    </div>
+    <form id="img-form" class="img-form">
+      <input id="img-q" type="search" placeholder="Suche, z. B. Frosch, Vulkan, Paris" aria-label="Suchbegriff">
+      <select id="img-license" aria-label="Lizenzfilter">
+        <option value="all">alle offenen Lizenzen</option>
+        <option value="commercial">kommerzielle Nutzung erlaubt</option>
+        <option value="modification">Bearbeitung erlaubt</option>
+      </select>
+      <button class="btn primary" type="submit">Suchen</button>
+    </form>
+    <p id="img-status" class="hint">Frei lizenzierte Bilder von <a href="https://openverse.org" target="_blank" rel="noopener">Openverse</a>. Der Bildnachweis (Titel, Urheber/in, Lizenz) wird automatisch eingetragen.</p>
+    <div id="img-results" class="img-results"></div>
+    <div class="dlg-foot"><button id="img-more" class="btn small" hidden>Weitere Ergebnisse</button></div>
+  </dialog>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>
