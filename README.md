@@ -15,7 +15,7 @@ Open-Source-Editor ohne Programmierkenntnisse für Arbeitsblätter, Klassenarbei
 Blockeditor im Browser → JSON-Dokument → Typst → PDF, Live-Vorschau oder interaktives HTML.
 Änderungen sind in [CHANGELOG.md](CHANGELOG.md) dokumentiert.
 
-**Inhalt:** [Vorschau](#vorschau) · [Installation](#installation) · [Desktop-App](#desktop-app) · [Funktionen](#funktionen) · [Editor und Dashboard](#editor-und-dashboard) · [Broschüren](#broschüren) · [Seitendesign und Erweiterungen](#seitendesign-und-erweiterungen) · [Sicherheit](#sicherheit) · [Einschränkungen](#bekannte-einschränkungen) · [Projektstruktur](#projektstruktur) · [Lizenz](#lizenz) · [KI-Hinweis](#ki-hinweis)
+**Inhalt:** [Vorschau](#vorschau) · [Desktop-App](#desktop-app) · [Browser-App](#installation) · [Funktionen](#funktionen) · [Editor und Dashboard](#editor-und-dashboard) · [Broschüren](#broschüren) · [Seitendesign und Erweiterungen](#seitendesign-und-erweiterungen) · [Sicherheit](#sicherheit) · [Einschränkungen](#bekannte-einschränkungen) · [Projektstruktur](#projektstruktur) · [Lizenz](#lizenz) · [KI-Hinweis](#ki-hinweis)
 
 ## Vorschau
 
@@ -30,7 +30,17 @@ Blockeditor im Browser → JSON-Dokument → Typst → PDF, Live-Vorschau oder i
   </tr>
 </table>
 
-## Installation
+## Installation: Desktop-App (Windows)
+
+Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie lässt sich z. B. auf einem USB-Stick mitführen. Sie kann [hier](https://github.com/c-siegel/Lineatur/releases/tag/v1.0) gedownloadet werden.
+
+- Startet beim ersten Mal nach wenigen Sekunden, entpackt sich dafür in einen Temp-Ordner.
+- Der Server läuft nur auf `127.0.0.1:37615`.
+- Die Dokumentbibliothek liegt im Ordner `Lineatur-Daten` neben der `.exe` (bei schreibgeschütztem Ordner im Benutzerprofil).
+- Dokumente aus der Browser-Version werden nicht übernommen: als JSON exportieren und in der App importieren.
+- Die `.exe` ist nicht signiert. SmartScreen zeigt beim ersten Start **Weitere Informationen → Trotzdem ausführen**. Manche Schulnetze blockieren unsignierte Programme; dann die Browser-Version (`npm start`) nutzen.
+
+## Installation: Browser-App (Windows, Mac, Linux)
 
 Voraussetzung: Node.js 20 oder neuer. Eine Typst-Installation ist nicht nötig, der Compiler kommt als npm-Paket.
 
@@ -51,7 +61,7 @@ Der Server nimmt nur Verbindungen vom eigenen Rechner an. Mit `HOST=0.0.0.0 npm 
 
 ## Desktop-App
 
-Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie lässt sich z. B. auf einem USB-Stick mitführen.
+Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie lässt sich z. B. auf einem USB-Stick mitführen. Sie kann [hier](https://github.com/c-siegel/Lineatur/releases/tag/v1.0) gedownloadet werden.
 
 - Startet beim ersten Mal nach wenigen Sekunden, entpackt sich dafür in einen Temp-Ordner.
 - Der Server läuft nur auf `127.0.0.1:37615`.
