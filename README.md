@@ -5,7 +5,7 @@
 # Lineatur
 
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
-[![Version 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational.svg)](package.json)
+[![Version 1.1.0](https://img.shields.io/badge/Version-1.1.0-informational.svg)](package.json)
 [![Node.js ≥ 20](https://img.shields.io/badge/Node.js-%E2%89%A5%2020-brightgreen.svg)](package.json)
 [![Satz: Typst](https://img.shields.io/badge/Satz-Typst-239dad.svg)](https://typst.app)
 

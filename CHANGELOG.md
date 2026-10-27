@@ -2,6 +2,10 @@
 
 Die Version wird nur in `package.json` gesetzt. Dashboard, Server, HTML-Export und die portable App (`Lineatur-<version>-portable.exe`) lesen sie von dort.
 
+## 1.1.0 – Seitendesigns für die portable App
+
+- **Seitendesigns in der portablen App**: Die `.exe` lädt zusätzlich den Ordner `themes` neben sich (bei Start aus dem Quellcode: Umgebungsvariable `LINEATUR_THEMES`). So lässt sich z. B. das Design „Projektheft“ aus `extras/uni-leipzig/` ohne eigenen Build installieren. Gelesen wird beim Start der App; nach Änderungen die App neu starten.
+
 ## 1.0.0 – erste Veröffentlichung
 
 Lineatur als Editor für Arbeitsblätter ohne Programmierkenntnisse für Lehrkräfte: Blockeditor im Browser, Typst für den Satz, Export als PDF und interaktives HTML.
