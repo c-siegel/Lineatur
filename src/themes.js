@@ -19,6 +19,12 @@ import { pathToFileURL } from 'node:url';
 
 const themes = new Map();
 
+async function loadOne(file, typstDir, files) {
+  const theme = (await import(pathToFileURL(file).href)).default;
+  if (!theme?.name || theme.name === 'custom' || typeof theme.page !== 'function') throw new Error('name and page() are required');
+  themes.set(theme.name, { ...theme, dir: typstDir, files });
+}
+
 /** Loads all designs from the given folders (relative to root, which is Typst's workspace). */
 export async function loadThemes(root, dirs) {
   for (const dir of dirs) {
@@ -28,10 +34,7 @@ export async function loadThemes(root, dirs) {
       const file = path.join(abs, name, 'theme.js');
       if (!fs.existsSync(file)) continue;
       try {
-        const theme = (await import(pathToFileURL(file).href)).default;
-        if (!theme?.name || theme.name === 'custom' || typeof theme.page !== 'function') throw new Error('name and page() are required');
-        const typstDir = '/' + path.relative(root, path.dirname(file)).split(path.sep).join('/');
-        themes.set(theme.name, { ...theme, dir: typstDir });
+        await loadOne(file, '/' + path.relative(root, path.dirname(file)).split(path.sep).join('/'), []);
       } catch (e) {
         console.warn(`Seitendesign ${name} nicht geladen: ${e.message}`);
       }
@@ -39,6 +42,34 @@ export async function loadThemes(root, dirs) {
   }
   return [...themes.keys()];
 }
+
+/**
+ * Loads designs from a folder outside the app (e.g. "themes" next to the portable .exe).
+ * Typst can only import from its workspace, so the design's files are handed over as virtual
+ * files under /ext-themes/<folder>/ (see themeFiles).
+ */
+export async function loadExternalThemes(absDir) {
+  if (!absDir || !fs.existsSync(absDir)) return [];
+  const loaded = [];
+  for (const name of fs.readdirSync(absDir)) {
+    const folder = path.join(absDir, name);
+    const file = path.join(folder, 'theme.js');
+    if (!fs.existsSync(file)) continue;
+    try {
+      const files = fs.readdirSync(folder, { withFileTypes: true })
+        .filter((f) => f.isFile() && !f.name.endsWith('.js'))
+        .map((f) => [`ext-themes/${name}/${f.name}`, fs.readFileSync(path.join(folder, f.name))]);
+      await loadOne(file, `/ext-themes/${name}`, files);
+      loaded.push(name);
+    } catch (e) {
+      console.warn(`Seitendesign ${name} nicht geladen: ${e.message}`);
+    }
+  }
+  return loaded;
+}
+
+/** Virtual files [path relative to the workspace, bytes] of the designs loaded from outside the app. */
+export const themeFiles = () => [...themes.values()].flatMap((t) => t.files || []);
 
 export const getTheme = (name) => themes.get(name);
 

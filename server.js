@@ -9,7 +9,7 @@ import { setMathValidator } from './src/typst-util.js';
 import { zip } from './src/zip.js';
 import { previewParts, rememberAssets, restoreAssets } from './src/preview.js';
 import { VERSION } from './src/version.js';
-import { loadThemes, themeList } from './src/themes.js';
+import { loadThemes, loadExternalThemes, themeFiles, themeList } from './src/themes.js';
 import { bookletOrder, imposeTypst, BOOKLET_SRC } from './src/booklet.js';
 import { PAGE_W, PAGE_H } from './public/layout.js';
 
@@ -24,7 +24,10 @@ const HOST = process.env.HOST || '127.0.0.1';
 // fonts/ holds the open-licensed families (npm run fonts downloads them).
 const fontDir = path.join(ROOT, 'fonts');
 // page designs (add-ons in themes/, see themes/README.md)
-const themeNames = await loadThemes(ROOT, ['themes']);
+// LINEATUR_THEMES: extra folder with designs outside the app (the portable .exe sets it to "themes" next to itself)
+await loadThemes(ROOT, ['themes']);
+await loadExternalThemes(process.env.LINEATUR_THEMES);
+const themeNames = themeList().map((t) => t.name);
 if (themeNames.length) console.log(`Seitendesigns: ${themeNames.join(', ')}`);
 
 const compiler = NodeCompiler.create({
@@ -47,6 +50,7 @@ setMathValidator((m) => {
 function mapAssets(assets) {
   compiler.resetShadow();
   for (const [p, bytes] of assets) compiler.mapShadow(path.join(ROOT, p), bytes);
+  for (const [p, bytes] of themeFiles()) compiler.mapShadow(path.join(ROOT, p), bytes);
 }
 
 function compileSource(typst, assets) {

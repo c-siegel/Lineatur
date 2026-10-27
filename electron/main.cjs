@@ -23,6 +23,8 @@ if (portableDir) {
   } catch {
     // read-only location (e.g. a network share): fall back to the user profile
   }
+  // page designs the user puts into "themes" next to the .exe (see themes/README.md)
+  process.env.LINEATUR_THEMES = path.join(portableDir, 'themes');
 }
 
 let win = null;
