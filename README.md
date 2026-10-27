@@ -5,7 +5,7 @@
 # Lineatur
 
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
-[![Version 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational.svg)](package.json)
+[![Version 1.1.0](https://img.shields.io/badge/Version-1.1.0-informational.svg)](package.json)
 [![Node.js ≥ 20](https://img.shields.io/badge/Node.js-%E2%89%A5%2020-brightgreen.svg)](package.json)
 [![Satz: Typst](https://img.shields.io/badge/Satz-Typst-239dad.svg)](https://typst.app)
 
@@ -109,7 +109,7 @@ Die Broschüre entsteht durch einen zweiten Typst-Lauf, der die A5-Seiten als Ve
 ## Seitendesign und Erweiterungen
 
 - **Eigenes Design** (*Dokument → Seite → Seitendesign*): Hauptfarbe, Zweitfarbe, Form am Seitenrand, Logo und Kopfzeile. Auf doppelseitigen Seiten wird gespiegelt. Das Design ist im Dokument gespeichert.
-- **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die Veröffentlichung enthält keine Add-ons. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
+- **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die portable `.exe` lädt zusätzlich einen Ordner `themes` neben der `.exe` (Umgebungsvariable `LINEATUR_THEMES`). Die Veröffentlichung enthält keine Add-ons. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
 - **`extras/`:** Material für einzelne Einrichtungen, das nicht zur allgemeinen Version gehört. `extras/uni-leipzig/` enthält das Design „Projektheft“ und eine A5-Broschürenvorlage; Installation in [extras/uni-leipzig/README.md](extras/uni-leipzig/README.md).
 
 ## Sicherheit

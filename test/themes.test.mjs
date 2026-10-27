@@ -36,3 +36,15 @@ test('a design without page() or named "custom" is not loaded', async () => {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a design from an outside folder brings its Typst files as virtual files', async () => {
+  const { loadExternalThemes, themeFiles } = await import('../src/themes.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lineatur-ext-'));
+  fs.mkdirSync(path.join(dir, 'ext'));
+  fs.writeFileSync(path.join(dir, 'ext', 'theme.js'), 'export default { name: "ext", label: "Ext", page: () => "" };');
+  fs.writeFileSync(path.join(dir, 'ext', 'ext.typ'), '#let x = 1');
+  assert.deepEqual(await loadExternalThemes(dir), ['ext']);
+  assert.equal(getTheme('ext').dir, '/ext-themes/ext');
+  assert.ok(themeFiles().some(([p]) => p === 'ext-themes/ext/ext.typ'));
+  assert.deepEqual(await loadExternalThemes(path.join(dir, 'missing')), []);
+});

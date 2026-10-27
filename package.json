@@ -1,6 +1,6 @@
 {
   "name": "lineatur",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Lineatur: no-code worksheet editor (block editor -> JSON -> Typst -> PDF / interactive HTML)",
   "license": "MIT",

@@ -14,7 +14,9 @@ weitergegeben.
 1. **Seitendesign:** den Ordner `themes/projektheft/` in den Ordner `themes/` von Lineatur kopieren
    (also nach `themes/projektheft/`) und Lineatur neu starten. Danach steht unter
    Dokument → Seite → Seitendesign „Projektheft (Schülerlabor)“ zur Auswahl.
-   Für die Desktop-App: vor `npm run dist` kopieren, dann ist das Design in der .exe enthalten.
+   **Portable .exe:** neben die `.exe` einen Ordner `themes` legen und den Ordner `projektheft`
+   dort hineinkopieren (`Lineatur-….exe`, `themes/projektheft/theme.js`, …), dann die App neu
+   starten. Alternativ vor `npm run dist` nach `themes/` kopieren, dann ist das Design in der .exe enthalten.
 2. **Vorlage:** in Lineatur unter Für den Einstieg → Vorlagen → „Vorlage importieren…“ die Datei
    `vorlagen/projektheft.json` wählen.
 
