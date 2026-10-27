@@ -1,0 +1,209 @@
+# Lineatur
+
+> Lineatur is an open-source block editor for school worksheets, exams and booklets. A worksheet is one JSON document (a list of blocks plus page settings). The user imports that JSON into Lineatur (Dashboard → "JSON importieren…"), edits it there and exports PDF (student sheet + solution sheet) or interactive HTML. This file tells you how to write that JSON.
+
+Repository: https://github.com/c-siegel/Lineatur · Source of truth for the format: `public/editor/blocktypes.js` (block defaults), `public/editor/fields.js` (all block fields), `public/help.js` (notation per block), `public/layout.js` (page geometry), `src/toTypst.js` (rendering).
+
+## Your task
+
+When asked for a worksheet, answer with ONE JSON object (in a code block, nothing else inside it) that the user can save as `name.json` and import. Rules of thumb:
+
+- Output valid JSON: double quotes, no comments, no trailing commas, `\n` for line breaks inside strings.
+- Use `"layoutMode": "flow"`: blocks are stacked top to bottom in array order, pages break automatically, and you do not have to compute positions. Blocks need no `layout` key in this mode.
+- Every block needs a unique `id` (any short string, e.g. `"h1"`, `"t1"`, `"c3"`) and a `type`. Missing document keys get defaults on import, so keep the document header short.
+- Write the worksheet in the language the user asks for and set `"lang"` to `"de"` or `"en"` (that only changes built-in labels such as "Name/Klasse/Datum", "Punkte" and the solution sheet title). The editor UI itself is German.
+- Put solutions into the blocks (correct options, `[[gaps]]`, `solution` fields). Lineatur makes the solution sheet from the same JSON; you never write a second sheet.
+- Do not invent block types or fields. Unknown fields are ignored, unknown types are not rendered. Do not embed images (`src` needs a data URL; leave images to the user).
+
+## Minimal valid document
+
+```json
+{
+  "title": "Der Wasserkreislauf",
+  "lang": "de",
+  "format": "a4",
+  "layoutMode": "flow",
+  "blocks": [
+    { "id": "h1", "type": "heading", "level": 1, "text": "Verdunstung und Niederschlag" },
+    { "id": "c1", "type": "cloze", "text": "Die Sonne erwärmt das Meer, das Wasser [[verdunstet]]. In der Höhe [[kondensiert]] es zu [[Wolken|Wolke]].", "points": 3 }
+  ]
+}
+```
+
+## Document keys (all optional except `blocks`)
+
+| key | values / default |
+|---|---|
+| `title` | worksheet title (string) |
+| `subtitle` | string |
+| `solutionTitle` | title of the solution sheet (default: same as title) |
+| `lang` | `"de"` (default) or `"en"` |
+| `format` | `"a4"` (default), `"a4-landscape"`, `"a5"`, `"4:3"`, `"16:9"` (slides) |
+| `layoutMode` | `"flow"` (recommended for generated sheets) or `"free"` (grid with positions, the editor default) |
+| `font` | `"Open Sans"` (default), `"OpenDyslexic"`, `"Source Sans 3"`, `"Maven Pro"`, `"Roboto"`, `"Comic Neue"`, `"Lora"`, `"Kalam"`, `"Fraunces"`, `"Montserrat"`, `"Nunito"`, `"BioRhyme"`, `"Caveat"`, `"New Computer Modern"`, `"Libertinus Serif"` |
+| `fontSize` | pt, default `12` |
+| `accent` | `"blue"` (default), `"green"`, `"teal"`, `"red"`, `"purple"`, `"orange"`, `"gray"`, or `"#rrggbb"` |
+| `nameLine` | `true` (default) shows "Name / Klasse / Datum" under the title; `false` hides it |
+| `titleHeader` | `true` (default) title block on page 1; `false` for a custom cover page |
+| `className` | text for the "Klasse" field |
+| `date` | `"YYYY-MM-DD"` for the "Datum" field |
+| `meta` | `{ "subject": "Biologie", "grade": "7" }`; subject is one of Deutsch, Mathematik, Englisch, Französisch, Spanisch, Latein, Biologie, Chemie, Physik, Informatik, Geschichte, Geographie, Politik, Wirtschaft, "Religion / Ethik", Kunst, Musik, Sport, Sachunterricht, Sonstiges; grade is `"1"`…`"13"` or `"Erwachsenenbildung"` |
+| `headingNumbering` | `"1"` (1. / 1.1), `"I"`, `"A"`, or omit for none |
+| `numbering` | exercise numbers: `{ "format": "1" \| "a" \| "A" \| "(", "style": "filled" \| "circle" \| "box" \| "plain", "restart": false }`; `restart: true` restarts at each level‑1 heading |
+| `gaps` | `{ "style": "line" \| "filled" \| "box" \| "dotted" \| "bracket" }` look of cloze/arithmetic/anagram gaps (default `line`) |
+| `points` | `{ "abbr": "P.", "bonusAbbr": "ZP" }` |
+| `pageSide` | `"right"` (default) or `"both"` (double-sided, mirrored margins) |
+| `booklet` | `{ "on": true, "cover": true, "backCover": true }` with `format: "a5"` for a folded A4 booklet |
+| `hyphenate` | `true` enables hyphenation |
+| `pageFrame` | `{ "style": "none" \| "line" \| "thick" \| "double" \| "rounded" \| "dashed" \| "dotted" \| "corners", "color": "gray" }` |
+| `pageTint` | page background colour name or `#rrggbb` (default `"none"`) |
+| `blocks` | array of blocks (below) |
+
+Do not set `id`, `exam`, `grid`, `theme`, `design`, `logo`: the importer assigns a new `id`; `exam` is replaced by an `assessment` block (see below).
+
+## Common block keys
+
+- `id` (string, unique), `type` (see next section).
+- `task: true` – makes a content block an exercise (see "Which blocks are exercises"). Optional `taskText` (instruction shown above the content; for `text` blocks the text itself is the instruction), `points`, `bonus`, `difficulty` (0–3).
+- `numbered: false` – exercise without a number; for headings: not numbered.
+- `hidden: true` – block is skipped.
+- `newPage: true` – in flow mode, start a new page before this block (an alternative to a `pagebreak` block).
+- `style`: `{ "frame": "none" | "solid" | "thick" | "dashed" | "dotted" | "left" | "card", "color": "gray", "fill": "none" }` – frame and background of any block. Colours: names `gray1 gray2 gray3 blue green yellow orange red purple sky teal rose lilac pink periwinkle` (frame colours also `gray dark black`), or `"#rrggbb"`.
+- In `layoutMode: "free"` only: `layout: { "page": 0, "x": 0, "y": 0, "w": 174, "h": 0 }` in mm (see "Free layout").
+
+## Exercises, points, difficulty
+
+`points` is a number (halves allowed) and sums up to the total shown in score blocks and the assessment table. `bonus` = extra points that are not part of the total. `difficulty` is `0` (none), `1` (easy), `2` (medium), `3` (hard) and is shown as dots. Give every exercise a sensible `points` value; a worksheet for a test needs them.
+
+Always exercises (numbered, with points): `choice`, `cloze`, `sorting`, `matching`, `cycle`, `chain`, `wordsearch`, `crossword`, `anagram`, `arithmetic`.
+Become exercises with `"task": true`: `text`, `image`, `lines`, `squares`, `qr`, `table`, `tchart`, `infobox`, `formula`, `function`, `valuetable`, `tree`, `code`.
+Never exercises: `heading`, `toc`, `score`, `assessment`, `pagebreak`.
+
+## Text formatting inside text fields
+
+`**bold**`, `*italic*`. Math between dollar signs: `$x^2 + 1$` (Typst math syntax: `sqrt(x)`, `(a)/(b)`, `pi`, `x_1`, `plus.minus`; LaTeX such as `\frac{a}{b}` also works in `formula` blocks). Math must not contain `#` or `$`. Newlines inside a text become line breaks. Plain text is escaped, so `#`, `_`, `<` are safe outside math.
+
+## Block reference
+
+Block fields below show every field with its default; omit what you do not need.
+
+### Basics
+
+**heading** – `{ "type":"heading", "level":1, "text":"…", "rule":true, "numbered":true, "toc":true }`. `level` 1 = section, 2 = subsection. `rule:false` removes the line below level 1. `toc:false` leaves it out of the table of contents.
+
+**text** – `{ "type":"text", "text":"…", "size":"", "align":"", "bold":false, "italic":false }`. `size`: `"small"`, `""` (normal), `"large"`, `"title"`. `align`: `""` (left), `"center"`, `"right"`. With `task:true` the text is itself a numbered exercise.
+
+**toc** – table of contents from all headings: `{ "type":"toc", "title":"Inhaltsverzeichnis", "depth":2, "pageNumbers":true, "dots":true }`. `depth` 1 = sections only.
+
+**lines** – writing lines: `{ "type":"lines", "label":"", "count":4, "lineStyle":"ruled", "spacing":9, "solution":"" }`. `lineStyle`: `"ruled"`, `"school"` (4-line primary school), `"dotted"`. `spacing` in mm (2.5–20; use 6–9). `solution` is a sample answer shown instead of the lines on the solution sheet. For an open question use `"task": true`, `"taskText": "Erkläre …"`, `"points": 3`.
+
+**squares** – grid paper: `{ "type":"squares", "rows":6, "size":5, "dots":false }` (`size` = mm, `dots:true` = dot grid).
+
+**qr** – QR code: `{ "type":"qr", "text":"https://…", "caption":"", "captionStyle":"text", "size":28, "align":"center" }` (`captionStyle`: `"text"` or `"badge"`; `size` in mm).
+
+**score** – "Punkte: ___ / Gesamt": `{ "type":"score", "label":"", "max":0, "align":"right" }`. `max: 0` = sum of all exercise points.
+
+**assessment** – points table + grade scale for tests: `{ "type":"assessment", "title":"Bewertung", "table":true, "scale":true, "scaleLabel":"", "thresholds":[92,81,67,50,30] }`. `thresholds` = minimum percent of total points for grades 1–5. Use at most one, usually as the last block.
+
+**pagebreak** – `{ "type":"pagebreak" }` (flow mode only).
+
+**table** – `{ "type":"table", "title":"", "rows":"…", "header":"both", "look":"filled", "color":"blue", "rowHeight":0, "widths":"" }`
+- `rows`: one table row per line, cells separated by `|`. An empty cell is left empty for students; `[[answer]]` is a gap whose answer shows on the solution sheet.
+- `header`: `"row"`, `"col"`, `"both"`, `"none"`. `look`: `"filled"`, `"grid"`, `"zebra"`. `color`: `blue yellow green rose lilac gray` or `#rrggbb`. `widths`: ratio like `"2;1;1"`. `rowHeight` in mm (0 = automatic).
+- Example rows: `" | Masse in g | Volumen in cm³\nEisen | 79 | [[10]]\nHolz | [[6]] | 10"`.
+
+**tchart** – columns with writing lines (comparison, pro/contra): `{ "type":"tchart", "text":"", "columns":"Pro | Contra", "lines":3, "solution":"" }`. 2–4 columns separated by `|`. `solution`: one line per row, entries separated by `|`.
+
+**infobox** – coloured box for definitions and tips: `{ "type":"infobox", "title":"", "text":"…", "color":"rose" }`. `color`: `rose periwinkle orange sky teal yellow lilac green gray` or `#rrggbb`.
+
+**image** – `{ "type":"image", "src":"", "caption":"", "credit":"", "width":100, "align":"center" }`. `src` must be a PNG/JPEG data URL; you cannot supply one, so only add an image block as a placeholder (empty `src`) if the user wants to insert the picture later, and say so.
+
+### Exercises
+
+**choice** (multiple choice, several answers may be correct)
+`{ "type":"choice", "text":"Frage", "options":[{"text":"A","correct":true},{"text":"B","correct":false}], "arrange":"list", "points":1, "difficulty":1 }`. `arrange`: `"list"` (below each other) or `"row"` (side by side). 3–5 options.
+
+**cloze** (gap text)
+`{ "type":"cloze", "text":"Wasser [[verdunstet]] und bildet [[Wolken|Wolke]].", "wordbank":false, "seed":1, "points":3 }`. Gaps are `[[answer]]`; alternatives with `|` (`[[Wolken|Wolke]]`, the first is shown on the solution sheet and in the word bank). `wordbank:true` shows the gap words shuffled above the text. Award about 1 point per gap.
+
+**sorting** (put in order; shown shuffled)
+`{ "type":"sorting", "text":"Bringe die Schritte in die richtige Reihenfolge.", "items":"Erster\nZweiter\nDritter", "seed":1, "points":3 }`. `items`: write them in the CORRECT order, one per line.
+
+**matching** (draw lines between pairs)
+`{ "type":"matching", "text":"Ordne zu.", "pairs":"Hund = dog\nKatze = cat", "seed":1, "points":2 }`. One pair per line, `left = right`.
+
+**cycle** (boxes on a circle with arrows)
+`{ "type":"cycle", "text":"…", "items":"Verdunstung\n[[Kondensation]]\nNiederschlag\n[[Versickerung]]", "color":"lilac", "direction":"cw", "wordbank":false, "seed":1, "points":2 }`. Items clockwise from the top, one per line; `[[item]]` leaves that box empty for students. `direction`: `"cw"` or `"ccw"`. `color`: `lilac orange blue teal rose gray`.
+
+**chain** (boxes in a row/column with arrows)
+`{ "type":"chain", "text":"…", "items":"Gras\n[[Heuschrecke]]\nFrosch\n[[Storch]]", "color":"rose", "direction":"row", "wordbank":true, "seed":1, "points":2 }`. `direction`: `"row"` or `"column"`.
+
+### Puzzles
+
+**wordsearch** – `{ "type":"wordsearch", "text":"Finde die Wörter.", "words":"Sonne, Mond, Stern", "size":10, "difficulty":1, "seed":1, "points":0 }`. `size` 6–18 (grid edge; must fit the longest word). Here `difficulty` is the direction set: `1` → ↓, `2` + diagonal, `3` + backwards. Words separated by comma or newline.
+
+**crossword** – `{ "type":"crossword", "text":"Löse das Rätsel.", "entries":"MERKUR: Der sonnennächste Planet\nMARS: Der rote Planet", "seed":1, "points":5, "difficulty":2 }`. One `WORD: clue` per line. Words must share letters to cross; give 6–12 words with overlapping letters.
+
+**anagram** – `{ "type":"anagram", "text":"Wie heißen die Wörter richtig?", "words":"Apfel, Birne", "seed":1, "points":2 }` (Lineatur scrambles the letters).
+
+### STEM (MINT)
+
+**arithmetic** – generated drill: `{ "type":"arithmetic", "text":"Rechne.", "ops":["+","-"], "min":1, "max":20, "count":12, "columns":3, "noNegative":true, "seed":1, "points":3 }`. `ops` any of `"+"`, `"-"`, `"*"`, `"/"` (divisions always work out). `min`/`max` bound the operands. `seed` (any integer) fixes the numbers.
+
+**formula** – display formula: `{ "type":"formula", "formula":"x = (-b plus.minus sqrt(b^2 - 4 a c)) / (2 a)", "size":14, "align":"center" }`.
+
+**function** – coordinate system with graphs:
+`{ "type":"function", "text":"", "fns":"f(x) = 0,5x^2 - 1\ng(x) = sin(x)", "xmin":-4, "xmax":4, "ymin":-3, "ymax":6, "step":1, "grid":"squares", "showGraphs":"always", "points":"A(1|2)", "connect":false, "legend":true, "maxHeight":110 }`. One function per line, decimal comma allowed, `*` optional (`2x`); available: `sqrt sin cos tan exp ln abs` and `^`. `grid`: `"squares"`, `"lines"`, `"none"`. `showGraphs`: `"always"`, `"solution"` (graphs only on the solution sheet; students see an empty system), `"never"`. `points`: one `A(x|y)` per line; `connect:true` joins them to a figure.
+
+**valuetable** – `{ "type":"valuetable", "text":"Vervollständige die Wertetabelle.", "fn":"f(x) = x^2 - 3", "xs":"-3; -2; -1; 0; 1; 2; 3", "mode":"blank", "showTerm":true }`. `mode`: `"blank"` (students fill y; solution sheet shows them) or `"full"`. x values separated by `;`.
+
+**tree** – probability tree: `{ "type":"tree", "text":"…", "spec":"rot: 2/5\n  rot: 1/4\n  blau: 3/4\nblau: 3/5\n  rot: 2/4\n  blau: 2/4", "showProbs":"always", "showPaths":"solution" }`. Each branch is `label: probability` (fraction like `2/5` or decimal) on its own line; sub-branches are indented by two spaces per level. `showProbs`: `"always"` or `"solution"` (empty boxes for students). `showPaths` (path probabilities): `"none"`, `"solution"` (students calculate), `"always"`.
+
+**code** – `{ "type":"code", "title":"", "lang":"python", "code":"for i in range(3):\n    print(i)", "lineNumbers":true, "size":9 }`. `lang`: python java javascript c cpp csharp html css sql bash json xml php kotlin go rust text.
+
+## Free layout (only if the user wants a poster-like page)
+
+Set `"layoutMode": "free"` and give every block `"layout": { "page": 0, "x": 0, "y": 0, "w": 174 }` (millimetres inside the page body; `page` is 0-based; `y` is measured from the top of the content area; height grows with the content, optional `h` is a minimum height). Body width: A4 portrait 174, A4 landscape 265, A5 120, slides 226. Default grid is 3 columns: x = 0, 57, 114 with w = 60 (one third), 117 (two thirds) or 174 (full) for A4. Blocks must not overlap: stack them yourself with enough `y` distance (a text block is about 6 mm per line, an exercise needs 10–60 mm). Set `"pageCount"` to the number of pages. When in doubt use flow mode; the user can switch to the grid in the editor.
+
+## Writing good worksheets
+
+- Start with a `heading` (level 1) or `text` instruction, then group exercises under headings; ease in from easy to hard (`difficulty` 1→3).
+- Give each exercise a clear instruction in `text` and realistic `points` (cloze: ~1 per gap; multiple choice: 1–2; open answer with `lines`: 2–4).
+- Vary the block types (choice, cloze, matching, lines, table, puzzle). Use `lines` with `task:true` for free answers, and give them a `solution`.
+- For tests add one `assessment` block at the end and optionally a `score` block; set `"nameLine": true`.
+- Keep multiple-choice options plausible and make exactly the intended ones `correct:true`.
+- Choose different integer `seed`s for different blocks (they only fix the random arrangement; the user can reshuffle).
+- Do not exceed what the sheet can show: wordsearch words must fit `size`, cycle/chain 3–8 items, crossword words with shared letters, tables under ~10 rows per block.
+
+## Full example
+
+```json
+{
+  "title": "Dichte",
+  "subtitle": "Physik, Klasse 7",
+  "lang": "de",
+  "format": "a4",
+  "layoutMode": "flow",
+  "accent": "teal",
+  "nameLine": true,
+  "headingNumbering": "1",
+  "numbering": { "format": "1", "style": "filled", "restart": false },
+  "gaps": { "style": "line" },
+  "meta": { "subject": "Physik", "grade": "7" },
+  "blocks": [
+    { "id": "i1", "type": "infobox", "title": "Merke", "text": "Die **Dichte** gibt an, wie schwer ein Kubikzentimeter eines Stoffes ist: $rho = m / V$.", "color": "teal" },
+    { "id": "h1", "type": "heading", "level": 1, "text": "Grundlagen" },
+    { "id": "c1", "type": "choice", "text": "Welche Stoffe schwimmen in Wasser?", "options": [
+        { "text": "Holz", "correct": true }, { "text": "Eisen", "correct": false },
+        { "text": "Eis", "correct": true }, { "text": "Glas", "correct": false } ], "points": 2, "difficulty": 1 },
+    { "id": "k1", "type": "cloze", "text": "Die Dichte berechnet man als [[Masse]] geteilt durch [[Volumen]]. Die Einheit ist [[g/cm³|g/cm^3]].", "wordbank": true, "seed": 3, "points": 3, "difficulty": 1 },
+    { "id": "h2", "type": "heading", "level": 1, "text": "Rechnen" },
+    { "id": "t1", "type": "table", "title": "Dichte verschiedener Stoffe", "rows": " | Masse in g | Volumen in cm³ | Dichte in g/cm³\nEisen | 79 | 10 | [[7,9]]\nHolz | 6 | 10 | [[0,6]]\nWasser | 10 | 10 | [[1]]", "header": "both", "look": "filled", "color": "blue", "task": true, "taskText": "Berechne die Dichte.", "points": 3, "difficulty": 2 },
+    { "id": "f1", "type": "formula", "formula": "rho = m / V", "size": 16, "align": "center" },
+    { "id": "l1", "type": "lines", "label": "", "count": 4, "lineStyle": "ruled", "spacing": 8, "task": true, "taskText": "Erkläre, warum ein Schiff aus Stahl schwimmt.", "solution": "Das Schiff ist innen hohl; die mittlere Dichte aus Stahl und Luft ist kleiner als die von Wasser.", "points": 3, "difficulty": 3 },
+    { "id": "m1", "type": "matching", "text": "Verbinde Stoff und Dichte.", "pairs": "Wasser = 1,0 g/cm³\nEisen = 7,9 g/cm³\nGold = 19,3 g/cm³", "seed": 5, "points": 3, "difficulty": 2 },
+    { "id": "s1", "type": "sorting", "text": "Bringe die Schritte der Dichtebestimmung in die richtige Reihenfolge.", "items": "Körper wiegen\nVolumen bestimmen\nMasse durch Volumen teilen\nErgebnis mit Einheit angeben", "seed": 7, "points": 2, "difficulty": 1 },
+    { "id": "a1", "type": "assessment", "title": "Bewertung", "table": true, "scale": true, "scaleLabel": "", "thresholds": [92, 81, 67, 50, 30] }
+  ]
+}
+```
