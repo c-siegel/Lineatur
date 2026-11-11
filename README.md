@@ -110,6 +110,7 @@ Die Broschüre entsteht durch einen zweiten Typst-Lauf, der die A5-Seiten als Ve
 
 - **Eigenes Design** (*Dokument → Seite → Seitendesign*): Hauptfarbe, Zweitfarbe, Form am Seitenrand, Logo und Kopfzeile. Auf doppelseitigen Seiten wird gespiegelt. Das Design ist im Dokument gespeichert.
 - **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die portable `.exe` lädt zusätzlich einen Ordner `themes` neben der `.exe` (Umgebungsvariable `LINEATUR_THEMES`). Die Veröffentlichung enthält keine Add-ons. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
+- **Design importieren** (*Dokument → Seite → Seitendesign → Design importieren …*): nimmt ein Design als `.zip` an (die Dateien des Designordners, ohne Unterordner) und lädt es sofort, ohne Neustart. Es landet in `LINEATUR_THEMES` (portable App: `themes` neben der `.exe`), sonst in `themes/`. Dort installierte Designs lassen sich auch wieder entfernen. Nur bei lokalem Server, siehe [Sicherheit](#sicherheit).
 - **`extras/`:** Material für einzelne Einrichtungen, das nicht zur allgemeinen Version gehört. `extras/uni-leipzig/` enthält das Design „Projektheft“ und eine A5-Broschürenvorlage; Installation in [extras/uni-leipzig/README.md](extras/uni-leipzig/README.md).
 
 ## Sicherheit
@@ -118,6 +119,7 @@ Die Broschüre entsteht durch einen zweiten Typst-Lauf, der die A5-Seiten als Ve
 - Formeln (`$…$`, Formelbaustein) werden nur durchgereicht, wenn sie kein `#` oder `$` enthalten. Jede Formel wird einzeln testkompiliert. Eine fehlerhafte Formel erscheint als Klartext, das restliche Blatt bleibt intakt.
 - Bilder erreichen Typst als virtuelle Dateien (nur PNG/JPEG), nie direkt von der Festplatte.
 - Der HTML-Export maskiert alle Nutzertexte.
+- Ein Seitendesign enthält Programmcode (`theme.js`), der im Server läuft. Der Import über die Oberfläche ist deshalb nur aktiv, wenn der Server allein auf diesem Rechner erreichbar ist (`HOST` ist `127.0.0.1`, `localhost` oder `::1`), oder wenn `LINEATUR_THEME_IMPORT=1` ihn ausdrücklich erlaubt. Der Server nimmt die Anfrage nur über eine lokale Adresse an, nicht von einer fremden Webseite (Prüfung von `Host` und `Origin`) und nur mit dem Kopfeintrag des Editors. Vor dem Import warnt ein Dialog.
 
 ## Bekannte Einschränkungen
 

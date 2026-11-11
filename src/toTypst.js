@@ -11,7 +11,7 @@ import {
   BODY_W, PAGE_W, PAGE_H, MARGIN_L, MARGIN_R, MARGIN_TOP, MARGIN_BOTTOM, MIRRORED, HEADER_GAP, isExercise, isTask,
   DEFAULT_FONT, layoutOf, readingOrder, applyGeometry, exLabel, headingNumbers, footerItems,
 } from '../public/layout.js';
-import { S, inline, fmt, num, clamp, shuffled, hexOf, paintOf, frameStyleOf, FILLS, STROKES, ACCENTS } from './typst-util.js';
+import { S, inline, inlineParts, leadWords, plainText, fmt, num, clamp, shuffled, hexOf, paintOf, frameStyleOf, FILLS, STROKES, ACCENTS } from './typst-util.js';
 import {
   wordsearchBody, crosswordBody, sortingBody, matchingBody, anagramBody, arithmeticBody,
 } from './puzzles.js';
@@ -126,6 +126,29 @@ const preambleFor = (accent, badge = 'filled') => `
     }])
 ]
 
+// Number "im Text": the badge opens the first line and the points close it on the right; from the
+// second line on the text uses the full width. Typst cannot wrap text around a box, so the words of
+// the first line are measured: as many as fit beside badge and points make up the first line.
+#let ex-inline(n, pts, d, words, tail, rest) = block(width: 100%, breakable: false, above: 1.3em, below: 0.5em, layout(size => {
+  let side = {
+    if pts != "" { text(size: 9pt, fill: luma(90), pts) }
+    if d > 0 { h(5pt); diff-dots(d) }
+  }
+  let sw = measure(side).width
+  let room = size.width - (if sw > 0pt { sw + 9pt } else { 0pt })
+  let first(k) = [#num-badge(n)#h(6pt)] + words.slice(0, k).join([ ])
+  let fits(k) = measure(block(width: room, first(k))).height <= measure(first(k)).height + 0.5pt
+  let (lo, hi) = (0, words.len())
+  while lo < hi {
+    let mid = calc.quo(lo + hi + 1, 2)
+    if fits(mid) { lo = mid } else { hi = mid - 1 }
+  }
+  first(lo) + h(1fr) + side
+  if lo < words.len() { linebreak(); words.slice(lo).join([ ]) }
+  tail
+  rest
+}))
+
 #let h-one(body, rule: true) = block(width: 100%, above: 1.5em, below: 0.7em, breakable: false,
   stack(spacing: 3pt, text(size: 1.27em, weight: "bold", fill: accent, body),
     if rule { line(length: 100%, stroke: 0.9pt + accent) }))
@@ -218,6 +241,7 @@ export function prepare(doc, { solutions = false, assets = new Map(), warnings }
   const ctx = {
     fontSize: clamp(num(doc.fontSize, 12), 8, 20),
     gapRise: ((st) => `${st.h} - ${st.base}`)(GAPS[doc.gaps?.style] || GAPS.line), // height of a gap above the baseline
+    numberLayout: doc.numbering?.layout === 'inline' ? 'inline' : 'indent', // exercise number beside the text or in it
     themed: !!getTheme(doc.theme), free, lang, T: LAB[lang], sol: !!solutions, total, bonusTotal, assets, headNums, tocHeadings, exercises, restart,
     points: { ...(doc.points || {}) },
     /** A problem with one block, shown in the editor's inspector (not on the sheet). */
@@ -270,7 +294,7 @@ function zonesMarkup(doc, ctx, items, extra = {}, valign = 'top') {
       case 'page': return `#${S(ctx.T.page)} ${pageNo} / ${pageCount}`;
       case 'date': return `#${S(formatDate(doc.date, ctx.lang))}`;
       case 'class': return `#${S(doc.className || '')}`;
-      case 'text': return `#${S(it.text || '')}`;
+      case 'text': return inline(it.text || '');
       default: return '';
     }
   };
@@ -673,6 +697,39 @@ function frameOf(b) {
   return `fill: ${fill || 'none'}, stroke: ${stroke || 'none'}, radius: ${{ left: 0, card: 9 }[st.frame] ?? 4}pt`;
 }
 
+/** The text an exercise begins with, as parts for inlineParts (text, hole, text, …); null if it does
+ *  not begin with text (then the number cannot stand in the text). */
+function leadOf(b, ctx) {
+  const has = (t) => String(t ?? '').trim() !== '';
+  if (isTask(b)) {
+    if (b.type !== 'text') return has(b.taskText) ? [b.taskText] : null;
+    const styled = TEXT_SIZES[b.size] || b.bold || b.italic || ['center', 'right'].includes(b.align);
+    return !styled && has(b.text) ? [b.text] : null;
+  }
+  if (b.type === 'cloze') return b.wordbank || !has(b.text) ? null : clozeTextParts(b, ctx);
+  return has(b.text) ? [b.text] : null;
+}
+
+/** Number and points around an exercise body: beside it (eingerückt) or in its first line (im Text).
+ *  body(w) renders the body for a width w (mm). */
+function exMarkup(b, e, ctx, inner, body) {
+  const d = Math.min(3, Math.max(0, parseInt(b.difficulty) || 0));
+  const head = `${S(e.label)}, ${S(pointsLabel(e, ctx))}, ${d}`;
+  const lead = (b.numberLayout || ctx.numberLayout) === 'inline' && leadOf(b, ctx);
+  if (lead) {
+    // figures keep the size they have beside an indented number (the grid layout stays as it is)
+    const full = body(Math.max(20, inner - EX_CHROME));
+    const start = inlineParts(lead);
+    // the body must begin with exactly this text; otherwise fall back to the indented number
+    if (start && full.startsWith(start)) {
+      const { words, tail } = leadWords(lead);
+      return `#ex-inline(${head}, (${words.map((w) => `[${w}]`).join(', ')}${words.length === 1 ? ',' : ''}), [${tail}], [${full.slice(start.length)}])`;
+    }
+  }
+  const rise = firstLineHasGap(b, ctx, inner - EX_CHROME) ? `, rise: ${ctx.gapRise}` : '';
+  return `#ex-box(${head}, [\n${body(Math.max(20, inner - EX_CHROME))}\n]${rise})`;
+}
+
 /** Markup for one block (no placement). Returns '' for unknown types. */
 export function blockMarkup(b, e, ctx, availMm, { stretch = false, bare = false } = {}) {
   const frame = frameOf(b);
@@ -684,18 +741,13 @@ export function blockMarkup(b, e, ctx, availMm, { stretch = false, bare = false 
   if (CONTENT[b.type] && isTask(b) && !bare) {
     // a content block used as a task: the instruction above it, number and points beside it
     // (bare: the content alone, for the HTML export, which shows number and instruction itself)
-    const content = CONTENT[b.type](b, ctx, e ? Math.max(20, inner - EX_CHROME) : inner);
     const instruction = b.type !== 'text' && String(b.taskText || '').trim() ? `${inline(b.taskText)}\n\n#v(1pt)\n` : '';
-    const body = instruction + content;
-    const d = Math.min(3, Math.max(0, parseInt(b.difficulty) || 0));
-    markup = e ? `#ex-box(${S(e.label)}, ${S(pointsLabel(e, ctx))}, ${d}, [\n${body}\n])` : body;
+    const body = (w) => instruction + CONTENT[b.type](b, ctx, w);
+    markup = e ? exMarkup(b, e, ctx, inner, body) : body(inner);
   } else if (CONTENT[b.type]) {
     markup = CONTENT[b.type](b, ctx, inner);
   } else if (BODIES[b.type] && e) {
-    const d = Math.min(3, Math.max(0, parseInt(b.difficulty) || 0));
-    const body = BODIES[b.type](b, ctx, Math.max(20, inner - EX_CHROME));
-    const rise = firstLineHasGap(b, ctx, inner - EX_CHROME) ? `, rise: ${ctx.gapRise}` : '';
-    markup = `#ex-box(${S(e.label)}, ${S(pointsLabel(e, ctx))}, ${d}, [\n${body}\n]${rise})`;
+    markup = exMarkup(b, e, ctx, inner, (w) => BODIES[b.type](b, ctx, w));
   } else if (BODIES[b.type] && b.numbered === false) {
     // an exercise switched to "ohne Nummer": the body without number and points
     markup = BODIES[b.type](b, ctx, Math.max(20, inner));
@@ -779,17 +831,25 @@ export const clozeParts = (text) => String(text ?? '').split(/\[\[(.+?)\]\]/g);
 /** Answers of a cloze text (first alternative), shuffled, for the word bank. */
 export const clozeWords = (b) => shuffled(clozeParts(b.text).filter((_, i) => i % 2).map((p) => p.split('|')[0].trim()), parseInt(b.seed) || 7);
 
-function clozeBody(b, { sol }) {
+/** A gap inside a formula ($x = [[2]]$) cannot be set; the formula then stays plain text. */
+export const gapInMath = (text) => /\$[^$\n]*\[\[.+?\]\][^$\n]*\$/.test(String(text ?? ''));
+
+function clozeBody(b, { sol, warn }) {
   const words = b.wordbank ? clozeWords(b) : [];
   const bank = words.length
-    ? `#block(width: 100%, stroke: 0.6pt + luma(160), radius: 3pt, inset: 6pt)[${words.map((w) => `#${S(w)}`).join(' #h(1.2em) ')}]\n`
+    ? `#block(width: 100%, stroke: 0.6pt + luma(160), radius: 3pt, inset: 6pt)[${words.map((w) => `#[${inline(w)}]`).join(' #h(1.2em) ')}]\n`
     : '';
-  return bank + clozeParts(b.text)
-    .map((p, i) => {
-      if (i % 2 === 0) return inline(p);
-      return sol
-        ? `#gap-sol[#${S(p.split('|').join(' / '))}]`
-        : `#gap-blank(${Math.max(3, p.split('|')[0].length * 0.6).toFixed(1)}em)`;
-    })
-    .join('');
+  if (gapInMath(b.text)) warn?.(b.id, 'Lücken in einer Formel ($x = [[2]]$) werden nicht unterstützt: Die Formel erscheint als Text. Die Lücke außerhalb der Formel setzen, z. B. $x =$ [[2]].');
+  // the gaps go in after the formatting, so **bold** and *italic* may run across them
+  return bank + inlineParts(clozeTextParts(b, { sol }));
+}
+
+/** Cloze text as parts for inlineParts: text, gap markup, text, … */
+function clozeTextParts(b, { sol }) {
+  return clozeParts(b.text).map((p, i) => {
+    if (i % 2 === 0) return p;
+    return sol
+      ? `#gap-sol[${inline(p.split('|').join(' / '))}]`
+      : `#gap-blank(${Math.max(3, plainText(p.split('|')[0]).length * 0.6).toFixed(1)}em)`;
+  });
 }

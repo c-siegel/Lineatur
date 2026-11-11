@@ -241,20 +241,118 @@ export function stackBlocks(blocks, heights, headerH, gap = 4, reserveLast = 0) 
   return page + 1;
 }
 
-/** First free spot below everything on the last page (new blocks, duplicates). */
-export function nextFreeSpot(blocks, heights, headerH, h = 20, gap = 4) {
-  let page = 0;
-  for (const b of blocks) page = Math.max(page, layoutOf(b).page);
-  let bottom = 0;
+/** Blocks that move together when aligning or distributing: each group is one unit
+ *  (with the frame around its members), every other block is a unit of its own.
+ *  `open` = id of a group that was entered; its members count as single blocks. */
+export function layoutUnits(blocks, heights, open = null) {
+  const byKey = new Map();
+  for (const b of blocks) {
+    const key = b.group && b.group !== open ? 'g:' + b.group : 'b:' + b.id;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push({ b, l: layoutOf(b), h: heights?.[b.id] ?? 20 });
+  }
+  return [...byKey.values()].map((items) => {
+    const x = Math.min(...items.map((i) => i.l.x));
+    const y = Math.min(...items.map((i) => i.l.y));
+    return {
+      items, x, y,
+      w: Math.max(...items.map((i) => i.l.x + i.l.w)) - x,
+      h: Math.max(...items.map((i) => i.l.y + i.h)) - y,
+      page: items[0].l.page,
+      locked: items.some((i) => i.b.locked),
+    };
+  });
+}
+
+/** Move all blocks of a unit by the same offset (the unit stays on the page). */
+function shiftUnit(u, x, y) {
+  const nx = round05(clamp(x, 0, Math.max(0, BODY_W - u.w)));
+  const ny = round05(Math.max(0, y));
+  for (const i of u.items) i.b.layout = { ...i.l, x: round05(i.l.x + nx - u.x), y: round05(i.l.y + ny - u.y) };
+}
+
+/** Align units to each other, or a single unit on the page (pageH = its content height).
+ *  mode: left | hcenter | right | top | vcenter | bottom. Mutates the layouts;
+ *  returns the number of locked units that stayed where they were. */
+export function alignUnits(units, mode, pageH) {
+  if (!units.length) return 0;
+  const ref = units.length === 1
+    ? { left: 0, right: BODY_W, top: 0, bottom: pageH }
+    : {
+      left: Math.min(...units.map((u) => u.x)), right: Math.max(...units.map((u) => u.x + u.w)),
+      top: Math.min(...units.map((u) => u.y)), bottom: Math.max(...units.map((u) => u.y + u.h)),
+    };
+  let skipped = 0;
+  for (const u of units) {
+    if (u.locked) { skipped++; continue; }
+    let { x, y } = u;
+    if (mode === 'left') x = ref.left;
+    if (mode === 'right') x = ref.right - u.w;
+    if (mode === 'hcenter') x = (ref.left + ref.right - u.w) / 2;
+    if (mode === 'top') y = ref.top;
+    if (mode === 'bottom') y = ref.bottom - u.h;
+    if (mode === 'vcenter') y = (ref.top + ref.bottom - u.h) / 2;
+    shiftUnit(u, x, y);
+  }
+  return skipped;
+}
+
+/** Equal gaps between units (the outer two stay). axis: 'h' | 'v'.
+ *  Mutates the layouts; returns the number of locked units that stayed. */
+export function distributeUnits(units, axis) {
+  const pos = (u) => (axis === 'h' ? u.x : u.y);
+  const size = (u) => (axis === 'h' ? u.w : u.h);
+  const list = [...units].sort((a, c) => pos(a) - pos(c));
+  if (list.length < 3) return 0;
+  const first = list[0];
+  const last = list[list.length - 1];
+  const gap = (pos(last) + size(last) - pos(first) - list.reduce((sum, u) => sum + size(u), 0)) / (list.length - 1);
+  let cur = pos(first) + size(first) + gap;
+  let skipped = 0;
+  for (const u of list.slice(1, -1)) {
+    if (u.locked) skipped++;
+    else if (axis === 'h') shiftUnit(u, cur, u.y);
+    else shiftUnit(u, u.x, cur);
+    cur += size(u) + gap;
+  }
+  return skipped;
+}
+
+/** First free spot below everything on a page (new blocks, pasted blocks).
+ *  Without `page`: the last page with blocks, else the next page.
+ *  With `page`: that page; if it is full, the following page (when `pageCount` says it exists);
+ *  if that is full too, { page: page + 1, y: 0, insert: true } – a new page must go in after `page`. */
+export function nextFreeSpot(blocks, heights, headerH, h = 20, gap = 4, { page = null, pageCount = 0 } = {}) {
+  const spotOn = (p) => {
+    let bottom = 0;
+    for (const b of blocks) {
+      const l = layoutOf(b);
+      if (l.page === p) bottom = Math.max(bottom, l.y + (heights?.[b.id] ?? 20));
+    }
+    const y = bottom === 0 ? 0 : Math.ceil((bottom + gap) / ROW) * ROW;
+    return y + h <= contentHeight(p, headerH) || bottom === 0 ? { page: p, y } : null;
+  };
+  if (page === null) {
+    const last = Math.max(0, ...blocks.map((b) => layoutOf(b).page));
+    return spotOn(last) || { page: last + 1, y: 0 };
+  }
+  return spotOn(page) || (page + 1 < pageCount && spotOn(page + 1)) || { page: page + 1, y: 0, insert: true };
+}
+
+/** Insert an empty page after page `after` (0-based): later pages move down by one. */
+export function insertPage(blocks, after) {
   for (const b of blocks) {
     const l = layoutOf(b);
-    if (l.page === page) bottom = Math.max(bottom, l.y + (heights?.[b.id] ?? 20));
+    if (l.page > after) b.layout = { ...l, page: l.page + 1 };
   }
-  let y = Math.ceil((bottom + gap) / ROW) * ROW;
-  if (bottom === 0) y = 0;
-  if (y + h > contentHeight(page, headerH)) {
-    page++;
-    y = 0;
+}
+
+/** Remove the empty page `page`: later pages move up by one. False if blocks sit on it. */
+export function removeEmptyPage(blocks, page) {
+  if (blocks.some((b) => layoutOf(b).page === page)) return false;
+  for (const b of blocks) {
+    const l = layoutOf(b);
+    if (l.page > page) b.layout = { ...l, page: l.page - 1 };
   }
-  return { page, y };
+  return true;
 }

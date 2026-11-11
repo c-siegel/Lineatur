@@ -32,8 +32,8 @@ export const diagramItems = (t) => lines(t).map((s) => {
 
 function boxMarkup(it, x, y, bw, bh, c, sol, size = 8.5) {
   const label = !it.blank
-    ? `text(size: ${size}pt, ${S(it.text)})`
-    : sol ? `text(size: ${size}pt, fill: ok.darken(25%), weight: "bold", ${S(it.text)})` : 'none';
+    ? `text(size: ${size}pt)[${inline(it.text)}]`
+    : sol ? `text(size: ${size}pt, fill: ok.darken(25%), weight: "bold")[${inline(it.text)}]` : 'none';
   return `place(dx: ${mm(x)}, dy: ${mm(y)}, box(width: ${mm(bw)}, height: ${mm(bh)}, fill: rgb("${c.box}"), radius: 2.5mm, inset: 3pt, align(center + horizon, ${label})))`;
 }
 
@@ -51,7 +51,7 @@ function wordBank(items, b, c, T) {
   if (!b.wordbank || !blanks.length) return '';
   const words = shuffled(blanks, parseInt(b.seed) || 1);
   return `#text(size: 8.5pt, weight: "bold", ${S(T.blocks + ':')}) #h(4pt) ${words.map((w) =>
-    `#box(stroke: 0.7pt + rgb("${c.arrow}"), inset: (x: 5pt, y: 3pt), baseline: 3pt, text(size: 8.5pt, ${S(w)}))`).join(' #h(4pt) ')}\n#v(4pt)\n`;
+    `#box(stroke: 0.7pt + rgb("${c.arrow}"), inset: (x: 5pt, y: 3pt), baseline: 3pt, text(size: 8.5pt)[${inline(w)}])`).join(' #h(4pt) ')}\n#v(4pt)\n`;
 }
 
 const intro = (b) => (String(b.text || '').trim() ? `${inline(b.text)}\n\n` : '');

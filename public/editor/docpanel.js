@@ -7,6 +7,7 @@ import {
   MARGIN_TOP, applyGeometry, footerItems, layoutOf, snapPosition, snapWidth,
 } from '../layout.js';
 import { listDocs } from '../store.js';
+import { dialog } from '../dashboard.js';
 import { META, META_LABELS } from '../meta.js';
 import {
   add, applyZoom, changed, cols, doc, fontLabel, headerSelected, info, isFree, renderBlocks, renderInspector,
@@ -379,6 +380,46 @@ function designFields() {
 // Page designs installed on the server (add-ons in themes/), loaded once at start.
 let installedThemes = [];
 const setInstalledThemes = (list) => { installedThemes = list; };
+let themeImport = false; // the server lets this computer install designs (local app only)
+const setThemeImport = (on) => { themeImport = !!on; };
+
+/** POST to the design endpoints; the header shows the server the request comes from the editor. */
+async function themeRequest(url, body) {
+  try {
+    const r = await fetch(url, { method: 'POST', headers: { 'X-Lineatur': 'themes', 'Content-Type': 'application/octet-stream' }, body });
+    return await r.json();
+  } catch {
+    return { ok: false, error: 'Der Server ist nicht erreichbar.' };
+  }
+}
+
+/** Install a design package (.zip) after a warning: a design brings program code. */
+async function importDesign() {
+  const ok = await dialog('Seitendesign importieren', h('div', {},
+    h('p', {}, 'Ein Seitendesign enthält Programmcode, der auf diesem Rechner ausgeführt wird. Importieren Sie nur Designs aus vertrauenswürdiger Quelle.'),
+    h('p', { class: 'hint' }, 'Erwartet wird eine .zip-Datei mit der theme.js und den Typst-Dateien des Designs. Ein Design mit demselben Ordnernamen wird ersetzt.')),
+  { ok: 'Datei wählen …' });
+  if (!ok) return;
+  const file = await pickFile('.zip,application/zip');
+  if (!file) return;
+  const r = await themeRequest(`/api/themes/import?file=${encodeURIComponent(file.name)}`, file);
+  if (!r.ok) { toast(`Import fehlgeschlagen: ${r.error}`); return; }
+  installedThemes = r.themes;
+  toast(`Seitendesign „${r.theme.label}“ installiert${doc.theme === r.theme.name ? '' : ' – unter „Design“ auswählbar'}.`);
+  docSetting(); // a sheet that uses the design shows it now
+}
+
+async function removeDesign(t) {
+  const ok = await dialog('Seitendesign entfernen', h('p', {},
+    `„${t.label}“ wird von diesem Rechner gelöscht. Blätter, die es verwenden, erscheinen ohne das Design; ihre Inhalte bleiben erhalten.`),
+  { ok: 'Entfernen', danger: true });
+  if (!ok) return;
+  const r = await themeRequest(`/api/themes/remove?name=${encodeURIComponent(t.name)}`, '');
+  if (!r.ok) { toast(`Entfernen fehlgeschlagen: ${r.error}`); return; }
+  installedThemes = r.themes;
+  toast(`Seitendesign „${t.label}“ entfernt.`);
+  docSetting();
+}
 
 function themeSection() {
   const o = (doc.themeOptions ??= {});
@@ -403,7 +444,10 @@ function themeSection() {
         docSetting();
       } }, 'Hochladen…'),
       o.logo ? h('button', { class: 'btn small', onclick: () => { doc.themeOptions.logo = ''; docSetting(); } }, 'Entfernen') : null) : null,
-    missing ? h('p', { class: 'hint' }, 'Dieses Seitendesign ist hier nicht installiert. Das Blatt erscheint ohne sein Design; die Inhalte bleiben erhalten.') : null);
+    missing ? h('p', { class: 'hint' }, 'Dieses Seitendesign ist hier nicht installiert. Das Blatt erscheint ohne sein Design; die Inhalte bleiben erhalten.') : null,
+    themeImport ? h('div', { class: 'theme-tools' },
+      h('button', { class: 'btn small', onclick: importDesign }, missing ? 'Design importieren … (fehlt hier)' : 'Design importieren …'),
+      theme?.removable ? h('button', { class: 'btn small', onclick: () => removeDesign(theme) }, `„${theme.label}“ entfernen`) : null) : null);
 }
 
 function contentTab() {
@@ -439,7 +483,10 @@ function contentTab() {
       row('Nummerierungsart', dSeg('numbering.format', [['1', '1', '1, 2, 3'], ['a', 'a)', 'a), b), c)'], ['A', 'A)', 'A), B), C)'], ['(', '(1)', '(1), (2), (3)']], { def: '1' })),
       row('Bei jeder Abschnittsüberschrift neu beginnen', dToggle('numbering.restart'), 'Zum Beispiel (1), (2), … neu in jedem Kapitel'),
       row('Aufgabenstil', dSeg('numbering.style', [['filled', h('span', { class: 'nb filled' }, '1'), 'gefüllt'], ['circle', h('span', { class: 'nb circle' }, '1'), 'Kreis'],
-        ['box', h('span', { class: 'nb box' }, '1'), 'Kasten'], ['plain', h('span', { class: 'nb plain' }, '1'), 'schlicht']], { def: 'filled' }))),
+        ['box', h('span', { class: 'nb box' }, '1'), 'Kasten'], ['plain', h('span', { class: 'nb plain' }, '1'), 'schlicht']], { def: 'filled' })),
+      row('Nummer und Text', dSeg('numbering.layout', [['indent', 'eingerückt', 'Der Text steht rechts neben der Nummer, alle Zeilen eingerückt'],
+        ['inline', 'im Text', 'Die Nummer steht in der ersten Zeile, ab der zweiten Zeile nutzt der Text die volle Breite']], { def: 'indent' }),
+      'Im Text: für lange Aufgabentexte. Beginnt eine Aufgabe nicht mit Text (z. B. mit Wortspeicher), bleibt sie eingerückt. Einzelne Aufgaben lassen sich in ihren Eigenschaften umstellen.')),
   ];
 }
 
@@ -455,5 +502,5 @@ export {
   ACCENT_OPTIONS, FOOTER_KINDS, SIZE_OPTIONS, bookletSection, closeTip, contentTab, dColor, dSeg, dSelect,
   dStepper, dText, dToggle, designFields, docSetting, docTab, field, footerZones, geometryChanged, getPath,
   infoTab, infoTip, installedThemes, more, moreOpen, pageTab, renderDocPanel, row, section, setDocTab,
-  setInstalledThemes, setPath, themeSection, toggleTip,
+  setInstalledThemes, setPath, setThemeImport, themeSection, toggleTip,
 };

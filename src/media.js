@@ -69,7 +69,7 @@ export function qrBody(b, ctx) {
 
 /** Writing lines with an optional label ("Beobachtung:"); the solution sheet shows b.solution instead. */
 export function linesBody(b, ctx = {}) {
-  const label = String(b.label || '').trim() ? `#text(${S(b.label)})
+  const label = String(b.label || '').trim() ? `#[${inline(b.label)}]
 ` : '';
   if (ctx.sol && String(b.solution || '').trim()) return `${label}#sol-box[${inline(b.solution)}]`;
   return label + ruledLines(b);
@@ -132,7 +132,7 @@ export function scoreBody(b, ctx) {
 /** Info box: rounded, strongly tinted, optional bold title. */
 export function infoBody(b) {
   const fill = hexOf(b.color, TINTS, 'rose');
-  const title = String(b.title || '').trim() ? `#text(weight: "bold", ${S(b.title)})\n\n` : '';
+  const title = String(b.title || '').trim() ? `#text(weight: "bold")[${inline(b.title)}]\n\n` : '';
   // white text on a dark custom colour
   return `#block(width: 100%, inset: 9pt, radius: 11pt, fill: rgb("${fill}"), breakable: false)[
 ${isDark(fill) ? '#set text(fill: white)\n' : ''}${title}${inline(b.text)}

@@ -22,7 +22,7 @@ export const cellAnswer = (c) => (/^\[\[(.*)\]\]$/.exec(c) || [])[1];
 function cellMarkup(c, sol) {
   const ans = cellAnswer(c);
   if (ans === undefined) return `[${inline(c)}]`;
-  return sol ? `text(fill: ok, weight: "bold", ${S(ans.split('|').join(' / '))})` : '[]';
+  return sol ? `text(fill: ok, weight: "bold")[${inline(ans.split('|').join(' / '))}]` : '[]';
 }
 
 export function tableBody(b, { sol }) {
@@ -53,7 +53,7 @@ export function tableBody(b, { sol }) {
     const m = cellMarkup(c, sol);
     return (hRow && y === 0) || (hCol && x === 0) ? `table.cell(text(weight: "bold", ${m}))` : m;
   }));
-  const title = b.title ? `#text(weight: "bold", underline(offset: 2pt, ${S(b.title)}))\n#v(2pt)\n` : '';
+  const title = b.title ? `#text(weight: "bold", underline(offset: 2pt)[${inline(b.title)}])\n#v(2pt)\n` : '';
   // filled cells in a dark custom colour get white text
   const light = look === 'filled' && isDark(hex) ? '#set text(fill: white)\n' : '';
   return `${title}${light ? `#[${light}` : ''}#table(columns: ${columns}, ${rowSizes}inset: (x: 6pt, y: 5pt),

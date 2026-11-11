@@ -9,7 +9,8 @@ import { setMathValidator } from './src/typst-util.js';
 import { zip } from './src/zip.js';
 import { previewParts, rememberAssets, restoreAssets } from './src/preview.js';
 import { VERSION } from './src/version.js';
-import { loadThemes, loadExternalThemes, themeFiles, themeList } from './src/themes.js';
+import { installTheme, loadThemes, loadExternalThemes, removeTheme, themeFiles, themeList } from './src/themes.js';
+import { unzip } from './src/unzip.js';
 import { bookletOrder, imposeTypst, BOOKLET_SRC } from './src/booklet.js';
 import { PAGE_W, PAGE_H } from './public/layout.js';
 
@@ -28,6 +29,24 @@ const fontDir = path.join(ROOT, 'fonts');
 await loadThemes(ROOT, ['themes']);
 await loadExternalThemes(process.env.LINEATUR_THEMES);
 const themeNames = themeList().map((t) => t.name);
+
+// Importing a design over the editor runs its theme.js here, so it is only on while the server
+// answers this computer alone (or LINEATUR_THEME_IMPORT=1 says otherwise). Designs go into
+// LINEATUR_THEMES (the portable app: "themes" next to the .exe), else into themes/.
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+const THEME_IMPORT = process.env.LINEATUR_THEME_IMPORT === '1' || LOCAL_HOSTS.has(HOST);
+const THEME_DIR = process.env.LINEATUR_THEMES || path.join(ROOT, 'themes');
+
+/** A design import/removal must come from the editor itself: the address it was opened under is
+ *  this computer, no other web page sent it (Origin), and it carries the editor's own header,
+ *  which a foreign page cannot add without the server allowing it (no CORS here). */
+function trustedThemeRequest(req) {
+  const host = String(req.headers.host || '');
+  const name = host.replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
+  if (!LOCAL_HOSTS.has(name) && process.env.LINEATUR_THEME_IMPORT !== '1') return false;
+  if (req.headers.origin && req.headers.origin !== `http://${host}`) return false;
+  return req.headers['x-lineatur'] === 'themes';
+}
 if (themeNames.length) console.log(`Seitendesigns: ${themeNames.join(', ')}`);
 
 const compiler = NodeCompiler.create({
@@ -178,6 +197,10 @@ const MIME = {
 };
 
 function readBody(req, limit = 30_000_000) {
+  return readBytes(req, limit).then((b) => b.toString('utf8'));
+}
+
+function readBytes(req, limit) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -190,7 +213,7 @@ function readBody(req, limit = 30_000_000) {
       }
       chunks.push(c);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }
@@ -288,7 +311,26 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/version') return json(res, 200, { version: VERSION });
 
-    if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, themeList());
+    if (req.method === 'GET' && url.pathname === '/api/themes') return json(res, 200, themeList(THEME_IMPORT ? THEME_DIR : null));
+    if (req.method === 'GET' && url.pathname === '/api/themes/config') return json(res, 200, { importAllowed: THEME_IMPORT });
+
+    // install a design package (.zip) / remove an installed design (see THEME_IMPORT)
+    if (req.method === 'POST' && (url.pathname === '/api/themes/import' || url.pathname === '/api/themes/remove')) {
+      if (!THEME_IMPORT || !trustedThemeRequest(req)) return json(res, 403, { ok: false, error: 'Designs lassen sich nur in der lokalen App importieren.' });
+      try {
+        let theme = null;
+        if (url.pathname.endsWith('/import')) {
+          const entries = unzip(await readBytes(req, 10_000_000));
+          theme = await installTheme(entries, THEME_DIR, url.searchParams.get('file') || '');
+          console.log(`Seitendesign importiert: ${theme.name}`);
+        } else {
+          removeTheme(url.searchParams.get('name') || '', THEME_DIR);
+        }
+        return json(res, 200, { ok: true, theme, themes: themeList(THEME_DIR) });
+      } catch (e) {
+        return json(res, 400, { ok: false, error: e.message });
+      }
+    }
 
     if (req.method === 'GET' && url.pathname === '/api/sample') {
       // the only built-in sample is the how-to; other templates are imported by the user

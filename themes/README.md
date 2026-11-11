@@ -8,6 +8,11 @@ Ein Design besteht aus einer `theme.js` und den Typst-Dateien, die sie importier
 Erklärung liegt in `extras/uni-leipzig/themes/projektheft/`; zum Installieren den Ordner hierher
 kopieren und Lineatur neu starten.
 
+Ohne Neustart geht es über **Dokument → Seite → Seitendesign → Design importieren …**: Den Designordner
+als `.zip` packen (die Dateien direkt oder in genau einem Ordner, keine Unterordner; erlaubt sind
+`.js`, `.typ`, Bilder, Schriften, `.json`, `.md`, `.txt`). Der Import ist nur bei lokalem Server aktiv,
+weil `theme.js` als Programmcode ausgeführt wird.
+
 Die portable Desktop-App lädt zusätzlich den Ordner `themes` **neben der `.exe`**. Bei einem Start aus
 dem Quellcode lässt sich ein beliebiger Ordner mit der Umgebungsvariable `LINEATUR_THEMES` angeben.
 Typst-Dateien eines solchen Designs müssen direkt im Designordner liegen (keine Unterordner).

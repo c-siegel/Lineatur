@@ -419,7 +419,7 @@ export function treeBody(b, { sol, lang }, w) {
       } else if (c.probText) {
         parts.push(`place(dx: ${mm(mx - 4.5)}, dy: ${mm(my - 2.7)}, box(width: 9mm, height: 5.4mm, fill: white, stroke: 0.6pt + luma(110), radius: 1.5pt))`);
       }
-      parts.push(label(c.x, c.y, `box(fill: white, inset: 1.5pt, text(size: 10pt, ${S(c.label)}))`, nodeW, 6));
+      parts.push(label(c.x, c.y, `box(fill: white, inset: 1.5pt, text(size: 10pt)[${inline(c.label)}])`, nodeW, 6));
       draw(c);
     }
   };

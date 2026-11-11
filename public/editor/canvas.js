@@ -9,9 +9,9 @@ import {
 import { svgIcon } from '../icons.js';
 import { $, h, toast } from './util.js';
 import {
-  add, autoScrollStage, cancelPaletteDrag, changed, chips, cols, copyBlock, doc, duplicate, editBlock, exNumbers,
-  headerSelected, info, isFree, layoutText, licenseDialog, mode, openAlignMenu, paletteDrag, remove,
-  renderBlocks, renderInspector, renderSelectionBox, reserveSidebars, round05, save, select, selectHeader,
+  add, autoScrollStage, canEnterGroup, cancelPaletteDrag, changed, chips, cols, copyBlock, doc, duplicate, editBlock, exNumbers,
+  enterGroup, headerSelected, info, isFree, layoutText, licenseDialog, mode, openAlignMenu, openGroupFrame, paletteDrag, remove,
+  markCurrentPage, renderBlocks, renderInspector, renderSelectionBox, reserveSidebars, round05, save, scrollToPending, select, selectHeader,
   selectedBlocks, selectedId, selection, setSelection, toggleLock, toggleSelect, updatePaletteDrag, withGroups,
 } from '../app.js';
 import { more, row } from './docpanel.js';
@@ -237,6 +237,8 @@ function renderOverlay() {
   }
   document.body.classList.toggle('multisel', selection.size > 1);
   renderSelectionBox();
+  markCurrentPage();
+  scrollToPending();
 }
 
 function makeRect(b) {
@@ -256,6 +258,7 @@ function makeRect(b) {
       tool('pencil', 'Baustein bearbeiten', () => editBlock(b.id)),
       tool('license', 'Lizenzinformationen anzeigen', () => licenseDialog(b.id)),
       tool('alignLeft', 'Ausrichten (auf der Seite)', (btn) => openAlignMenu(btn), 'aligntool'),
+      tool('frame', 'Rahmen & Hintergrund der Gruppe', () => openGroupFrame(b.id), 'grouptool'),
       tool('copy', 'Duplizieren', () => duplicate(b.id)),
       tool('clipboard', 'Kopieren', () => copyBlock(b.id)),
       tool('lock', 'Sperren', () => toggleLock(b.id), 'locktool'),
@@ -287,6 +290,13 @@ function syncLockTool(el, b) {
 
 let drag = null;
 let overCanvas = false;
+let pendingEnter = null; // a press on a member of the selected group: a click (no drag) selects only that member
+
+function onEnterUp(e) {
+  const p = pendingEnter;
+  pendingEnter = null;
+  if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 4) enterGroup(p.id);
+}
 
 const clampNum = (v, lo, hi, def) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) && v !== '' ? Number(v) : def));
 
@@ -342,6 +352,11 @@ function startDrag(e, id, el) {
   if (!b) return;
   e.preventDefault();
   if (e.shiftKey || e.ctrlKey || e.metaKey) { toggleSelect(id); return; }
+  // the group is already selected: a click picks one member, dragging still moves the group
+  if (!e.target.dataset.handle && canEnterGroup(id)) {
+    pendingEnter = { id, x: e.clientX, y: e.clientY };
+    window.addEventListener('pointerup', onEnterUp, { once: true });
+  }
   // pressing on a block of a multi-selection (or group) moves the whole selection
   const multi = selection.size > 1 && selection.has(id) && !e.target.dataset.handle;
   if (!multi) select(id, { from: 'canvas' });
