@@ -7,7 +7,7 @@
 // do it, but costs ~65 ms per diagram on every preview and needs a package
 // download, which the offline desktop app cannot rely on.
 
-import { S, inline, mm, clamp, lines, shuffled, customColor, lighten } from './typst-util.js';
+import { S, inline, mm, num, clamp, lines, shuffled, customColor, lighten } from './typst-util.js';
 
 export const DIAGRAM_COLORS = {
   lilac: { box: '#d4b6e3', arrow: '#9654b1' },
@@ -66,53 +66,76 @@ export function cycleBody(b, { sol, T }, w) {
   // box height from the longest text (8.5pt is about 1.6 mm per character); smaller text in small boxes
   let size = 8.5;
   const bhOf = (bw) => clamp(Math.max(...items.map((it) => Math.ceil(it.text.length / Math.max(6, (bw - 3) / (size * 0.19))))) * size * 0.43 + 4, 10, 26);
+  // narrowest box that still fits the longest word; never wider than 17 mm, as before
+  const longestWord = Math.max(...items.map((it) => Math.max(...it.text.split(/\s+/).map((s) => s.length))));
+  const minBw = () => clamp(longestWord * size * 0.17 + 3, 12, 17);
   let bw = clamp(w * (n > 5 ? 0.27 : 0.3), 18, 42);
   let bh = bhOf(bw);
   let rx = Math.max(10, (w - bw) / 2 - 1);
   // at most ~10 cm high, so the diagram still fits on an A5 page
   let ry = clamp(rx * 0.72, bh + 4, 40);
-  // grow the ellipse, then shrink the boxes, until neighbours leave room for an arrow
-  const crowded = () => {
-    const c = items.map((_, i) => [rx * Math.cos(ang(i)), ry * Math.sin(ang(i))]);
-    return c.some((p, i) => c.some((q, j) => j > i && Math.abs(p[0] - q[0]) < bw + 7 && Math.abs(p[1] - q[1]) < bh + 7));
+  // Geometry relative to the ellipse centre. An arrow runs along the ellipse from
+  // where it leaves box i to where it reaches box i+1, keeping `pad` from both.
+  const at = (a) => [rx * Math.cos(a), ry * Math.sin(a)];
+  const inside = ([x, y], i, pad = 2) => {
+    const [px, py] = at(ang(i));
+    return Math.abs(x - px) < bw / 2 + pad && Math.abs(y - py) < bh / 2 + pad;
   };
-  for (let k = 0; k < 80 && crowded(); k++) {
+  const step = dir * 0.01;
+  const arcLength = (a0, a1, segs = 24) => {
+    let len = 0;
+    for (let k = 1; k <= segs; k++) {
+      const [x0, y0] = at(a0 + ((a1 - a0) * (k - 1)) / segs);
+      const [x1, y1] = at(a0 + ((a1 - a0) * k) / segs);
+      len += Math.hypot(x1 - x0, y1 - y0);
+    }
+    return len;
+  };
+  const gaps = () => items.map((_, i) => {
+    const j = (i + 1) % n;
+    let a0 = ang(i);
+    let a1 = ang(i) + (dir * 2 * Math.PI) / n;
+    while (inside(at(a0), i) && dir * (a1 - a0) > 0) a0 += step;
+    while (inside(at(a1), j) && dir * (a1 - a0) > 0) a1 -= step;
+    return { a0, a1, len: dir * (a1 - a0) > 0 ? arcLength(a0, a1) : 0 };
+  });
+  // full-size head plus a visible piece of shaft
+  const HEAD = 5.5;
+  const MIN_ARC = HEAD + 3.5;
+  // grow the ellipse, then shrink the boxes, then the text, until every arrow has room
+  for (let k = 0; k < 120 && gaps().some((g) => g.len < MIN_ARC); k++) {
     if (ry < 40) ry = Math.min(40, ry + 3);
-    else if (bw > 17) {
-      bw *= 0.95;
-      if (bw < 26) size = 7.5;
+    else if (bw > minBw()) {
+      bw = Math.max(minBw(), bw * 0.95);
+      if (bw < 26) size = Math.min(size, 7.5);
       bh = bhOf(bw);
       rx = Math.max(10, (w - bw) / 2 - 1);
+    } else if (size > 6.5) {
+      size = 6.5;
+      bh = bhOf(bw);
     } else break;
   }
   const W = w;
   const H = 2 * ry + bh + 2;
-  const cx = W / 2;
-  const cy = H / 2;
-  const at = (a) => [cx + rx * Math.cos(a), cy + ry * Math.sin(a)];
-  const centers = items.map((_, i) => at(ang(i)));
-  const inside = ([x, y], i, pad = 2) => Math.abs(x - centers[i][0]) < bw / 2 + pad && Math.abs(y - centers[i][1]) < bh / 2 + pad;
+  const shift = ([x, y]) => [W / 2 + x, H / 2 + y];
+  const centers = items.map((_, i) => shift(at(ang(i))));
 
   const parts = [];
-  const step = dir * 0.01;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    let a0 = ang(i);
-    let a1 = ang(i) + (dir * 2 * Math.PI) / n;
-    while (inside(at(a0), i) && Math.abs(a0 - ang(i)) < Math.PI) a0 += step;
-    while (inside(at(a1), j) && Math.abs(a1 - ang(i)) > 0.02) a1 -= step;
-    if (dir * (a1 - a0) < 0.08) continue; // boxes touch: no room for an arrow
-    const head = 4.5;
+  for (const { a0, a1, len: arc } of gaps()) {
+    if (arc < 4) continue; // boxes (almost) touch: no room for a recognisable arrow
+    // if the layout could not make room, draw a smaller arrow rather than one sticking out backwards
+    const f = Math.min(1, arc / MIN_ARC);
+    const head = HEAD * f;
     const pts = [];
     const segs = 24;
-    for (let k = 0; k <= segs; k++) pts.push(at(a0 + ((a1 - a0) * k) / segs));
-    // shorten the arc by the head length
+    for (let k = 0; k <= segs; k++) pts.push(shift(at(a0 + ((a1 - a0) * k) / segs)));
+    // end the shaft inside the head
     const tip = pts[pts.length - 1];
-    while (pts.length > 2 && Math.hypot(pts[pts.length - 1][0] - tip[0], pts[pts.length - 1][1] - tip[1]) < head * 0.8) pts.pop();
+    while (pts.length > 2 && Math.hypot(pts[pts.length - 1][0] - tip[0], pts[pts.length - 1][1] - tip[1]) < head * 0.65) pts.pop();
     const last = pts[pts.length - 1];
     const len = Math.hypot(tip[0] - last[0], tip[1] - last[1]) || 1;
-    parts.push(`place(curve(stroke: (paint: rgb("${c.arrow}"), thickness: 2.2mm, join: "round"), curve.move((${mm(pts[0][0])}, ${mm(pts[0][1])}))${pts.slice(1).map(([x, y]) => `, curve.line((${mm(x)}, ${mm(y)}))`).join('')}))`);
-    parts.push(arrowHead(tip[0], tip[1], (tip[0] - last[0]) / len, (tip[1] - last[1]) / len, head + 1, 5.5, c.arrow));
+    parts.push(`place(curve(stroke: (paint: rgb("${c.arrow}"), thickness: ${mm(2.2 * Math.max(f, 0.6))}, join: "round"), curve.move((${mm(pts[0][0])}, ${mm(pts[0][1])}))${pts.slice(1).map(([x, y]) => `, curve.line((${mm(x)}, ${mm(y)}))`).join('')}))`);
+    parts.push(arrowHead(tip[0], tip[1], (tip[0] - last[0]) / len, (tip[1] - last[1]) / len, head, 5.5 * f, c.arrow));
   }
   items.forEach((it, i) => parts.push(boxMarkup(it, centers[i][0] - bw / 2, centers[i][1] - bh / 2, bw, bh, c, sol, size)));
   return `${intro(b)}${wordBank(items, b, c, T)}#align(center, box(width: ${mm(W)}, height: ${mm(H)}, {
@@ -126,11 +149,14 @@ export function chainBody(b, { sol, T }, w) {
   if (items.length < 2) return `${intro(b)}#text(size: 9pt, fill: luma(140), style: "italic", ${S(T.fewItems)})`;
   const n = items.length;
   const parts = [];
+  // box size in mm from the inspector; 0 or empty = automatic, too wide is capped at what fits
+  const boxW = (auto, max) => (num(b.boxWidth) > 0 ? Math.min(max, Math.max(8, num(b.boxWidth))) : auto);
+  const boxH = (auto) => (num(b.boxHeight) > 0 ? clamp(num(b.boxHeight), 6, 80) : auto);
   let W;
   let H;
   if (b.direction === 'column') {
-    const bw = Math.min(w, 60);
-    const bh = 12;
+    const bw = boxW(Math.min(w, 60), w);
+    const bh = boxH(12);
     const gap = 8;
     W = bw;
     H = n * bh + (n - 1) * gap;
@@ -144,8 +170,9 @@ export function chainBody(b, { sol, T }, w) {
     });
   } else {
     const gap = 8;
-    const bw = Math.min(42, (w - (n - 1) * gap) / n);
-    const bh = clamp(bw * 0.6, 11, 16);
+    const fit = (w - (n - 1) * gap) / n;
+    const bw = boxW(Math.min(42, fit), fit);
+    const bh = boxH(clamp(bw * 0.6, 11, 16));
     W = n * bw + (n - 1) * gap;
     H = bh;
     items.forEach((it, i) => {

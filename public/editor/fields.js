@@ -378,6 +378,11 @@ function fieldsFor(b) {
           b.type === 'cycle'
             ? choiceInput(b, 'direction', 'Richtung', [['cw', 'im Uhrzeigersinn'], ['ccw', 'gegen den Uhrzeigersinn']])
             : choiceInput(b, 'direction', 'Richtung', [['row', 'nebeneinander'], ['column', 'untereinander']])),
+        b.type === 'chain'
+          ? h('div', { class: 'row' },
+            numberInput(b, 'boxWidth', 'Kastenbreite (mm, 0 = automatisch)', { max: 200, step: 0.5 }),
+            numberInput(b, 'boxHeight', 'Kastenhöhe (mm, 0 = automatisch)', { max: 80, step: 0.5 }))
+          : null,
         checkInput(b, 'wordbank', 'Bausteine: leere Einträge gemischt darüber anzeigen'),
         h('div', { class: 'row' }, ...scoring(b)),
         b.wordbank ? shuffleRow(b) : null,
