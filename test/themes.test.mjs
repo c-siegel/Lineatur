@@ -48,3 +48,35 @@ test('a design from an outside folder brings its Typst files as virtual files', 
   assert.ok(themeFiles().some(([p]) => p === 'ext-themes/ext/ext.typ'));
   assert.deepEqual(await loadExternalThemes(path.join(dir, 'missing')), []);
 });
+
+test('a design package (.zip) installs at once and can be removed again', async () => {
+  const { installTheme, removeTheme, themeFiles } = await import('../src/themes.js');
+  const { zip } = await import('../src/zip.js');
+  const { unzip } = await import('../src/unzip.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lineatur-imp-'));
+  const pkg = zip([
+    { name: 'meins/theme.js', data: Buffer.from('export default { name: "meins", label: "Meins", page: () => "" };') },
+    { name: 'meins/meins.typ', data: Buffer.from('#let y = 2') },
+  ]);
+  const files = unzip(pkg);
+  assert.deepEqual(files.map((f) => f.name), ['meins/theme.js', 'meins/meins.typ']);
+  assert.deepEqual(await installTheme(files, dir), { name: 'meins', label: 'Meins' });
+  assert.ok(fs.existsSync(path.join(dir, 'meins', 'theme.js')));
+  assert.equal(getTheme('meins').dir, '/ext-themes/meins');
+  assert.ok(themeFiles().some(([p]) => p === 'ext-themes/meins/meins.typ'));
+  assert.equal(themeList(dir).find((t) => t.name === 'meins').removable, true);
+  assert.deepEqual(fs.readdirSync(dir), ['meins']); // no temporary folder left
+  removeTheme('meins', dir);
+  assert.equal(getTheme('meins'), undefined);
+  assert.ok(!fs.existsSync(path.join(dir, 'meins')));
+});
+
+test('a design package with sub-folders, paths or no theme.js is refused', async () => {
+  const { installTheme } = await import('../src/themes.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lineatur-imp-'));
+  const file = (name) => ({ name, data: Buffer.from('export default { name: "x", page: () => "" };') });
+  await assert.rejects(installTheme([file('theme.js'), file('../evil.js')], dir), /nicht erlaubt/);
+  await assert.rejects(installTheme([file('a/theme.js'), file('a/sub/x.typ')], dir), /nicht erlaubt/);
+  await assert.rejects(installTheme([file('x.typ')], dir), /keine theme\.js/);
+  assert.deepEqual(fs.readdirSync(dir), []);
+});

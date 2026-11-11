@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { prepare, documentSetup, blockMarkup, clozeParts, clozeWords, pointsLabel, headerFields } from './toTypst.js';
 import { BODY_W, ROW, isTask, layoutOf } from '../public/layout.js';
-import { safeMath, mathOk, emphasisParts, fmt, lines, shuffled, int, ACCENTS, TINTS, customColor, hexOf, isDark, frameStyleOf } from './typst-util.js';
+import { HOLE, withHoles, plainText, safeMath, mathOk, emphasisParts, fmt, lines, shuffled, int, ACCENTS, TINTS, customColor, hexOf, isDark, frameStyleOf } from './typst-util.js';
 import { tableRows, cellAnswer, TABLE_COLORS } from './tables.js';
 import { matchingPairs, scramble, buildArithmetic } from './puzzles.js';
 import { decodeImage } from './media.js';
@@ -89,7 +89,7 @@ export function toHtml(doc, { snippetSvg, fontDir }) {
   /** User text -> HTML (escaped, line breaks, **bold**, *italic*, $math$ as SVG). */
   const rich = (t) => String(t ?? '').split(/(\$[^$\n]+\$)/g).map((part) => {
     if (/^\$[^$\n]+\$$/.test(part)) {
-      const m = safeMath(part.slice(1, -1));
+      const m = !HOLE.test(part) && safeMath(part.slice(1, -1));
       if (m && mathOk(m)) return mathSvg(m);
     }
     return part.split(/\r?\n/).map((line) => emphasisParts(line).map(({ text, style }) => (
@@ -114,8 +114,13 @@ export function toHtml(doc, { snippetSvg, fontDir }) {
     // an open task without a sample answer has nothing to check
     const foot = data.includes('"open"') && !inner.includes('<details') ? ''
       : `<div class="exfoot"><button type="button" class="check">${esc(T.check)}</button><span class="feedback" aria-live="polite"></span></div>`;
-    return `<section class="ex" id="${id}" data-points="${e.pts}"${data}>
-<div class="exhead"><span class="num">${esc(e.label)}</span><div class="q">${rich(b.text)}</div><span class="pts">${esc(pts)}</span></div>
+    // number "im Text": number and points float, so the text runs below the number from its second line on
+    const inl = (b.numberLayout || doc.numbering?.layout) === 'inline';
+    const num = `<span class="num">${esc(e.label)}</span>`;
+    const ptsEl = `<span class="pts">${esc(pts)}</span>`;
+    const q = `<div class="q">${rich(b.text)}</div>`;
+    return `<section class="ex${inl ? ' numinline' : ''}" id="${id}" data-points="${e.pts}"${data}>
+<div class="exhead">${inl ? num + ptsEl + q : num + q + ptsEl}</div>
 ${inner}
 ${foot}
 </section>`;
@@ -148,10 +153,10 @@ ${foot}
         return `<figure style="text-align:${align}"><img src="${esc(b.src)}" alt="${esc(b.caption || '')}" style="width:${w}%">${b.caption ? `<figcaption>${rich(b.caption)}</figcaption>` : ''}${b.credit ? `<small class="credit">${esc(b.credit)}</small>` : ''}</figure>`;
       }
       case 'lines':
-        return `${String(b.label || '').trim() ? `<div class="lbl">${esc(b.label)}</div>` : ''}<textarea class="write" rows="${int(b.count, 1, 40, 5)}" aria-label="${esc(b.label || T.yourAnswer)}"></textarea>${String(b.solution || '').trim() ? `<details><summary>${esc(T.showSolution)}</summary><div class="sol">${rich(b.solution)}</div></details>` : ''}`;
+        return `${String(b.label || '').trim() ? `<div class="lbl">${rich(b.label)}</div>` : ''}<textarea class="write" rows="${int(b.count, 1, 40, 5)}" aria-label="${esc(b.label || T.yourAnswer)}"></textarea>${String(b.solution || '').trim() ? `<details><summary>${esc(T.showSolution)}</summary><div class="sol">${rich(b.solution)}</div></details>` : ''}`;
       case 'infobox':
         const tint = hexOf(b.color, TINTS, 'rose');
-        return `<aside class="info" style="background:${tint}${isDark(tint) ? ';color:#fff' : ''}">${String(b.title || '').trim() ? `<b>${esc(b.title)}</b><br>` : ''}${rich(b.text)}</aside>`;
+        return `<aside class="info" style="background:${tint}${isDark(tint) ? ';color:#fff' : ''}">${String(b.title || '').trim() ? `<b>${rich(b.title)}</b><br>` : ''}${rich(b.text)}</aside>`;
       case 'table': {
         const rows = tableRows(b.rows);
         if (!rows.length) return '';
@@ -168,7 +173,7 @@ ${foot}
             : c ? rich(c) : '<input class="cellin" aria-label="' + esc(T.yourAnswer) + '">';
           return `<${tag}>${inner}</${tag}>`;
         };
-        const table = `${b.title ? `<div class="ttitle">${esc(b.title)}</div>` : ''}<table class="tbl ${esc(b.look || 'filled')}" style="--cell:${color}">${rows.map((r, y) => `<tr>${r.map((c, x) => cell(c, x, y)).join('')}</tr>`).join('')}</table>`;
+        const table = `${b.title ? `<div class="ttitle">${rich(b.title)}</div>` : ''}<table class="tbl ${esc(b.look || 'filled')}" style="--cell:${color}">${rows.map((r, y) => `<tr>${r.map((c, x) => cell(c, x, y)).join('')}</tr>`).join('')}</table>`;
         // cells with an answer ([[…]]) make the table checkable (as a task: by the task's own button)
         return gaps && !inTask
           ? `<section class="ex" id="ex-${esc(b.id)}" data-points="0" data-kind="gaps">${table}<div class="exfoot"><button type="button" class="check">${esc(T.check)}</button><span class="feedback" aria-live="polite"></span></div></section>`
@@ -182,11 +187,13 @@ ${foot}
         return exercise(b, e, `<div class="opts${b.arrange === 'row' ? ' row-opts' : ''}">${opts}</div>`, ' data-kind="choice"');
       }
       case 'cloze': {
-        const html = clozeParts(b.text).map((p, i) => (i % 2 === 0
-          ? rich(p)
-          : `<input class="gap" size="${Math.max(4, p.split('|')[0].length + 1)}" data-a="${esc(p)}" aria-label="${esc(T.yourAnswer)}">`)).join('');
+        // the gaps go in after the formatting, so **bold** and *italic* may run across them
+        const { text, fill } = withHoles(clozeParts(b.text).map((p, i) => (i % 2 === 0
+          ? p
+          : `<input class="gap" size="${Math.max(4, plainText(p.split('|')[0]).length + 1)}" data-a="${esc(p)}" aria-label="${esc(T.yourAnswer)}">`)));
+        const html = fill(rich(text));
         const words = b.wordbank ? clozeWords(b) : [];
-        const bank = words.length ? `<div class="wordbank">${words.map((w) => `<span>${esc(w)}</span>`).join('')}</div>` : '';
+        const bank = words.length ? `<div class="wordbank">${words.map((w) => `<span>${rich(w)}</span>`).join('')}</div>` : '';
         // the question text of a cloze is the text itself
         return exercise({ ...b, text: '' }, e, `${bank}<p class="cloze">${html}</p>`, ' data-kind="gaps"');
       }
@@ -319,6 +326,10 @@ input,select,textarea{border:1px solid #c5ccd8;border-radius:5px;padding:3px 6px
 textarea.write{width:100%;resize:vertical;margin:6px 0}
 .ex{margin:16px 0;padding-top:4px}
 .exhead{display:flex;gap:10px;align-items:flex-start}.exhead .q{flex:1}.num{background:var(--accent);color:#fff;font-weight:700;border-radius:4px;padding:0 8px}.pts{color:#667;font-size:.85em;white-space:nowrap}
+.numinline .exhead{display:block}.numinline .num{float:left;margin-right:8px}.numinline .pts{float:right;margin-left:10px}
+.numinline:has(.exhead .q:empty) .exhead{line-height:2}.numinline .exhead+.cloze,.numinline .exhead+.wordbank+.cloze{margin-top:0}
+.numinline .opts,.numinline .cloze,.numinline .sorting,.numinline .matching,.numinline .anagrams,.numinline .drill,.numinline details,.numinline .wordbank{margin-left:0}
+.numinline .opts,.numinline .sorting,.numinline .matching,.numinline .anagrams,.numinline .drill,.numinline .wordbank,.numinline .exfoot{clear:both}
 .exfoot{display:flex;gap:12px;align-items:center;margin-top:6px}
 .check,#reset{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:4px 12px;cursor:pointer}#reset{background:#667;margin-left:8px}
 .feedback{font-weight:600}
@@ -363,7 +374,8 @@ ${(() => {
 </main>
 <script>
 (() => {
-  const norm = (s) => String(s).trim().toLowerCase().replace(/\\s+/g, ' ');
+  // formatting marks (**, *, $) in an answer do not count
+  const norm = (s) => String(s).replace(/\\*\\*|[*$]/g, '').trim().toLowerCase().replace(/\\s+/g, ' ');
   const scores = new Map();
   const mark = (el, ok) => { el.classList.toggle('right-ans', ok); el.classList.toggle('wrong-ans', !ok); };
   const total = () => { let s = 0; scores.forEach((v) => (s += v)); return s; };

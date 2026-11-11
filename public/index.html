@@ -91,7 +91,7 @@
 
       <!-- layers -->
       <section class="pane" data-pane="layers" hidden>
-        <h2>Ebenen <span class="hint inline">Klick wählt aus · Doppelklick bearbeitet · Ziehen ändert die Reihenfolge (oben liegt vorne)</span></h2>
+        <h2>Ebenen <span class="hint inline">Klick wählt aus · Doppelklick bearbeitet · Ziehen ändert Reihenfolge (oben liegt vorne) und Seite</span></h2>
         <label class="search"><span data-icon="search"></span><input id="layer-search" type="search" placeholder="Suchen…" aria-label="Ebenen durchsuchen"></label>
         <ul id="layers" class="layers"></ul>
       </section>
@@ -114,8 +114,8 @@
         <span class="tools">
           <label class="inline free-only"><input id="show-grid" type="checkbox" autocomplete="off"> Rasterlinien</label>
           <label class="inline free-only" title="Überlappende Bausteine orange, über den Seitenrand hinausragende rot markieren"><input id="show-warnings" type="checkbox" checked autocomplete="off"> Warnungen</label>
-          <button id="btn-addpage" class="btn small" title="Seite hinzufügen (im Fluss-Layout: Seitenumbruch am Ende)"><span data-icon="plus"></span>Seite</button>
-          <button id="btn-rmpage" class="btn small" title="Letzte Seite entfernen (muss leer sein)"><span data-icon="minus"></span>Seite</button>
+          <button id="btn-addpage" class="btn small" title="Neue Seite nach der aktuellen Seite (im Fluss-Layout: Seitenumbruch nach der Auswahl bzw. der sichtbaren Seite)"><span data-icon="plus"></span>Seite</button>
+          <button id="btn-rmpage" class="btn small" title="Aktuelle Seite entfernen (muss leer sein; im Fluss-Layout: Seitenumbruch am Ende)"><span data-icon="minus"></span>Seite</button>
           <button id="btn-arrange" class="btn small free-only" title="Alle Bausteine in voller Breite untereinander anordnen">Automatisch anordnen</button>
         </span>
       </div>

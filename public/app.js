@@ -14,8 +14,8 @@
 
 import {
   BODY_W, DEFAULT_FONT, DEFAULT_GRID, FONTS, TASKABLE_TYPES, isExercise, FORMATS, MARGIN_TOP, PAGE_W, ROW, applyGeometry,
-  contentHeight, defaultWidth, exLabel, headingNumbers, layoutOf, marginLeft, nextFreeSpot, readingOrder,
-  snapPosition, stackBlocks,
+  alignUnits, contentHeight, defaultWidth, distributeUnits, exLabel, headingNumbers, insertPage, layoutOf, layoutUnits,
+  marginLeft, nextFreeSpot, readingOrder, removeEmptyPage, snapPosition, stackBlocks,
 } from './layout.js';
 import { getDoc, listDocs, putDoc, putTemplate, setLastDocId } from './store.js';
 import { dialog, initDashboard, showDashboard } from './dashboard.js';
@@ -24,7 +24,7 @@ import { BLOCK_HELP } from './help.js';
 import { LICENSES, licenseText, normalizeMeta } from './meta.js';
 import { $, docUid, h, iconBtn, randSeed, toast, uid } from './editor/util.js';
 import {
-  SIZE_OPTIONS, closeTip, docSetting, field, more, renderDocPanel, row, setDocTab, setInstalledThemes,
+  SIZE_OPTIONS, closeTip, docSetting, field, more, renderDocPanel, row, setDocTab, setInstalledThemes, setThemeImport,
 } from './editor/docpanel.js';
 import { GRADE_THRESHOLDS, GROUPS, HEADER_LABELS, TYPES } from './editor/blocktypes.js';
 import { blockWarnings, flushThumb, rendering, schedule, timer } from './editor/preview.js';
@@ -43,6 +43,8 @@ let doc = emptyDoc();
 let mode = 'student';
 let selectedId = null;        // the one selected block (null when none or several are selected)
 let selection = new Set();    // all selected block ids
+let enteredGroup = null;      // group the user clicked into: its members are selected one by one
+let pendingScroll = null;     // { id } or { page }: bring into view once it is rendered
 let pendingArrange = false;
 let pendingPlace = null;      // id of an assessment block to move to the bottom of the last page once heights are known
 let headerSelected = false;   // the title header is selected (it has its own inspector)
@@ -50,7 +52,13 @@ let info = { heights: {}, natural: {}, headerH: 0, examH: 0, flow: {} };
 let zoom = 1;
 
 // setters for the editor modules (imported bindings are read-only there)
-const setInfo = (v) => { info = v; };
+const setInfo = (v) => {
+  // flow layout: the pages of the blocks come from Typst, and the layers panel lists them by page
+  const pages = (i) => (isFree() ? '' : Object.entries(i.flow || {}).map(([id, f]) => `${id}:${f.page}`).join());
+  const before = pages(info);
+  info = v;
+  if (pages(info) !== before) renderLayers();
+};
 const setPendingArrange = (v) => { pendingArrange = v; };
 
 const isFree = () => doc.layoutMode === 'free';
@@ -400,6 +408,8 @@ function renderInspector() {
   // a locked block shows its settings, but they cannot be changed
   const general = h('div', { class: 'row' },
     isExercise(b) ? checkInput(b, 'numbered', 'Mit Nummer', true) : null,
+    isExercise(b) && b.numbered !== false ? choiceInput(b, 'numberLayout', 'Nummer und Text',
+      [['', `wie im Dokument (${doc.numbering?.layout === 'inline' ? 'im Text' : 'eingerückt'})`], ['indent', 'eingerückt'], ['inline', 'im Text']]) : null,
     !isFree() ? checkInput(b, 'newPage', 'Auf neuer Seite beginnen') : null);
   parts.push(h('fieldset', { class: 'insp-body', disabled: b.locked || null },
     TASKABLE_TYPES.has(b.type) ? taskFields(b) : null, ...fieldsFor(b).filter(Boolean),
@@ -407,69 +417,240 @@ function renderInspector() {
   pane.replaceChildren(...parts);
 }
 
-/** All blocks in reading order; click selects, the eye hides a block on the sheet. */
 /** Order of the layers panel. Grid: stacking order, the front-most block on top.
  *  Flow: the order on the sheet. */
 const layerOrder = () => (isFree() ? [...doc.blocks].reverse() : doc.blocks);
 
+/** Put the blocks `ids` before beforeId (in panel order; null = at the end), keeping their own order. */
+function moveLayers(ids, beforeId) {
+  const moving = new Set(ids);
+  const order = layerOrder();
+  const rest = order.filter((b) => !moving.has(b.id)).map((b) => b.id);
+  const at = beforeId ? rest.indexOf(beforeId) : rest.length;
+  rest.splice(at < 0 ? rest.length : at, 0, ...order.filter((b) => moving.has(b.id)).map((b) => b.id));
+  const byId = new Map(doc.blocks.map((b) => [b.id, b]));
+  doc.blocks = (isFree() ? rest.reverse() : rest).map((x) => byId.get(x));
+}
+
 /** Drag in the layers panel: put block id before beforeId (in panel order; null = at the end). */
 function moveLayer(id, beforeId) {
-  const ids = layerOrder().map((b) => b.id).filter((x) => x !== id);
-  const at = beforeId ? ids.indexOf(beforeId) : ids.length;
-  ids.splice(at < 0 ? ids.length : at, 0, id);
-  const byId = new Map(doc.blocks.map((b) => [b.id, b]));
-  doc.blocks = (isFree() ? ids.reverse() : ids).map((x) => byId.get(x));
+  moveLayers([id], beforeId);
   renderBlocks(); renderOverlay(); changed(0);
 }
 
-let layerDrag = null; // id of the row being dragged
+/** Grid layout: move blocks (with their groups) to another page, below what is there.
+ *  Their arrangement and x positions stay. False if a block is locked. */
+function moveToPage(ids, page) {
+  const all = withGroups(ids);
+  const moving = doc.blocks.filter((b) => all.has(b.id));
+  if (!moving.length || moving.every((b) => layoutOf(b).page === page)) return true;
+  if (moving.some((b) => b.locked)) { toast('Gesperrte Bausteine bleiben auf ihrer Seite. Erst entsperren.'); return false; }
+  const ls = moving.map((b) => ({ b, l: layoutOf(b), h: info.heights[b.id] ?? 20 }));
+  const top = Math.min(...ls.map((i) => i.l.y));
+  const height = Math.max(...ls.map((i) => i.l.y + i.h)) - top;
+  const spot = nextFreeSpot(doc.blocks.filter((b) => !all.has(b.id)), info.heights, info.headerH, height, 4, { page });
+  if (spot.insert) toast(`Seite ${page + 1} ist voll – der Baustein liegt oben auf der Seite und überlappt.`);
+  const y = spot.insert ? 0 : spot.y;
+  for (const i of ls) i.b.layout = { ...i.l, page, y: round05(y + i.l.y - top) };
+  pendingScroll = { id: moving[0].id };
+  return true;
+}
 
+let layerDrag = null; // ids of the rows being dragged
+
+/** Dropped in the layers panel: on another page (grid) the blocks move there, then they go before beforeId. */
+function dropLayers(ids, page, beforeId) {
+  if (beforeId && ids.includes(beforeId)) return;
+  let move = ids;
+  if (isFree() && page !== layoutOf(blockById(ids[0])).page) {
+    if (!moveToPage(ids, page)) return;
+    move = [...withGroups(ids)]; // a group changes the page as a whole
+  }
+  moveLayers(move, beforeId);
+  renderBlocks(); renderOverlay(); changed(0);
+}
+
+// Collapsed pages and opened groups of the layers panel, per document (only in this browser).
+const LAYER_FOLD_KEY = 'lineatur-layers';
+function layerFold() {
+  try { return new Set(JSON.parse(localStorage.getItem(`${LAYER_FOLD_KEY}:${doc.id}`) || '[]')); } catch { return new Set(); }
+}
+function toggleLayerFold(key) {
+  const s = layerFold();
+  if (s.has(key)) s.delete(key); else s.add(key);
+  try { localStorage.setItem(`${LAYER_FOLD_KEY}:${doc.id}`, JSON.stringify([...s])); } catch { /* storage may be unavailable */ }
+  renderLayers();
+}
+
+/** Selection marks in the layers panel: a block row, a whole group, a page with something selected. */
+function syncLayerSelection() {
+  for (const li of $('layers').children) {
+    const ids = li._ids;
+    if (!ids) continue;
+    const n = ids.filter((id) => selection.has(id)).length;
+    const sel = li.dataset.id ? n > 0 : li.classList.contains('grouprow') && n > 0 && n === ids.length;
+    li.classList.toggle('sel', sel);
+    li.classList.toggle('has-sel', !sel && n > 0);
+  }
+}
+
+/** Layers panel: the blocks of each page (collapsible), groups as one row that opens to its members.
+ *  Grid: stacking order within a page; dragging a row onto another page moves the block there. */
 function renderLayers() {
   const list = $('layers');
   const q = $('layer-search').value.trim().toLowerCase();
   const nums = exNumbers();
   const heads = headingNumbers(displayOrder(), doc.headingNumbering);
   const canDrag = !q; // a filtered list would hide where a row lands
-  const rows = layerOrder()
-    .filter((b) => !q || blockSummary(b).toLowerCase().includes(q) || (TYPES[b.type]?.label || '').toLowerCase().includes(q))
-    .map((b) => {
-      const n = nums.get(b.id) || heads.get(b.id);
-      const li = h('li', { class: (selection.has(b.id) ? 'sel' : '') + (b.hidden ? ' off' : ''), 'data-id': b.id, title: blockSummary(b),
-        draggable: canDrag ? 'true' : null,
-        onclick: (e) => (e.shiftKey || e.ctrlKey || e.metaKey ? toggleSelect(b.id) : select(b.id, { from: 'layers' })), ondblclick: () => editBlock(b.id) },
-      canDrag ? h('span', { class: 'grip', 'aria-hidden': 'true', title: 'Ziehen ändert die Reihenfolge' }, '⠿') : null,
-      h('span', { class: 'ic' }, TYPES[b.type]?.icon || '?'),
-      h('span', { class: 'layer-name' }, (n ? n + ' ' : '') + blockSummary(b)));
-      if (b.group) li.append(h('span', { class: 'lockmark', title: 'Gruppiert' }, svgIcon('group')));
-      if (b.locked) li.append(h('span', { class: 'lockmark', title: 'Gesperrt' }, svgIcon('lock')));
-      li.append(iconBtn(b.hidden ? 'eyeOff' : 'eye', b.hidden ? 'Auf dem Blatt anzeigen' : 'Auf dem Blatt ausblenden', (e) => {
-        e.stopPropagation();
-        b.hidden = !b.hidden;
-        renderBlocks(); renderOverlay(); changed(0);
-      }));
-      if (canDrag) {
-        li.addEventListener('dragstart', (e) => { layerDrag = b.id; e.dataTransfer.effectAllowed = 'move'; li.classList.add('dragging'); });
-        li.addEventListener('dragend', () => { layerDrag = null; list.querySelectorAll('.drop-before, .drop-after, .dragging').forEach((x) => x.classList.remove('drop-before', 'drop-after', 'dragging')); });
-        li.addEventListener('dragover', (e) => {
-          if (!layerDrag || layerDrag === b.id) return;
-          e.preventDefault();
-          const after = e.offsetY > li.offsetHeight / 2;
-          li.classList.toggle('drop-before', !after);
-          li.classList.toggle('drop-after', after);
-        });
-        li.addEventListener('dragleave', () => li.classList.remove('drop-before', 'drop-after'));
-        li.addEventListener('drop', (e) => {
-          e.preventDefault();
-          const after = li.classList.contains('drop-after');
-          const id = layerDrag;
-          layerDrag = null;
-          if (!id || id === b.id) return;
-          moveLayer(id, after ? (li.nextElementSibling?.dataset.id ?? null) : b.id);
-        });
-      }
-      return li;
+  const fold = layerFold();
+  const match = (b) => !q || blockSummary(b).toLowerCase().includes(q) || (TYPES[b.type]?.label || '').toLowerCase().includes(q);
+  const order = layerOrder();
+
+  // page of each block; in the flow layout Typst reports it (a block not set yet stays with the one before)
+  const pageOf = new Map();
+  let lastPage = 0;
+  for (const b of order) {
+    const p = isFree() ? layoutOf(b).page : info.flow?.[b.id]?.page ?? -1;
+    if (p >= 0) lastPage = p;
+    pageOf.set(b.id, p >= 0 ? p : lastPage);
+  }
+  const pages = isFree() ? doc.pageCount : Math.max(1, ...[...pageOf.values()].map((p) => p + 1));
+  const groupIds = (g) => doc.blocks.filter((x) => x.group === g).map((x) => x.id);
+
+  /** Drop target: on a row (before / after it, by the pointer) or on a page header (at the top of the page). */
+  const dropOn = (li, page, beforeOf, halves = true) => {
+    li.addEventListener('dragover', (e) => {
+      if (!layerDrag) return;
+      e.preventDefault();
+      const after = halves && e.offsetY > li.offsetHeight / 2;
+      li.classList.toggle('drop-before', !after);
+      li.classList.toggle('drop-after', after);
     });
-  list.replaceChildren(...(rows.length ? rows : [h('li', { class: 'empty-hint' }, doc.blocks.length ? 'Nichts gefunden.' : 'Noch keine Bausteine – fügen Sie welche unter „Bausteine“ hinzu.')]));
+    li.addEventListener('dragleave', () => li.classList.remove('drop-before', 'drop-after'));
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const after = li.classList.contains('drop-after');
+      const ids = layerDrag;
+      layerDrag = null;
+      li.classList.remove('drop-before', 'drop-after');
+      if (ids) dropLayers(ids, page, beforeOf(after));
+    });
+  };
+  const dragFrom = (li, ids) => {
+    li.draggable = true;
+    li.addEventListener('dragstart', (e) => { layerDrag = ids; e.dataTransfer.effectAllowed = 'move'; li.classList.add('dragging'); });
+    li.addEventListener('dragend', () => { layerDrag = null; list.querySelectorAll('.drop-before, .drop-after, .dragging').forEach((x) => x.classList.remove('drop-before', 'drop-after', 'dragging')); });
+  };
+  const eye = (blocks) => {
+    const hidden = blocks.every((b) => b.hidden);
+    return iconBtn(hidden ? 'eyeOff' : 'eye', hidden ? 'Auf dem Blatt anzeigen' : 'Auf dem Blatt ausblenden', (e) => {
+      e.stopPropagation();
+      blocks.forEach((b) => { b.hidden = !hidden; });
+      renderBlocks(); renderOverlay(); changed(0);
+    });
+  };
+  const foldBtn = (key, open, what) => {
+    const t = h('button', { class: 'fold', 'aria-expanded': String(open), title: open ? `${what} zuklappen` : `${what} aufklappen`,
+      onclick: (e) => { e.stopPropagation(); toggleLayerFold(key); } });
+    t.append(svgIcon('chevron'));
+    return t;
+  };
+  const blockRow = (b, member) => {
+    const n = nums.get(b.id) || heads.get(b.id);
+    const g = member && b.group;
+    const li = h('li', { class: (member ? 'member' : '') + (b.hidden ? ' off' : ''), 'data-id': b.id, title: blockSummary(b),
+      onclick: (e) => {
+        const add = e.shiftKey || e.ctrlKey || e.metaKey;
+        if (g && enteredGroup !== g) enterGroup(b.id, { from: 'layers' }); // a member on its own
+        else if (add) toggleSelect(b.id);
+        else select(b.id, { from: 'layers' });
+      },
+      ondblclick: () => editBlock(b.id) },
+    canDrag ? h('span', { class: 'grip', 'aria-hidden': 'true', title: 'Ziehen ändert die Reihenfolge oder die Seite' }, '⠿') : null,
+    h('span', { class: 'ic' }, TYPES[b.type]?.icon || '?'),
+    h('span', { class: 'layer-name' }, (n ? n + ' ' : '') + blockSummary(b)));
+    if (b.group && !member) li.append(h('span', { class: 'lockmark', title: 'Gruppiert' }, svgIcon('group')));
+    if (b.locked) li.append(h('span', { class: 'lockmark', title: 'Gesperrt' }, svgIcon('lock')));
+    li.append(eye([b]));
+    li._ids = [b.id];
+    if (canDrag) dragFrom(li, [b.id]);
+    return li;
+  };
+
+  const rows = [];
+  for (let p = 0; p < pages; p++) {
+    const onPage = order.filter((b) => pageOf.get(b.id) === p);
+    const shown = onPage.filter(match);
+    if (q && !shown.length) continue;
+    // a group is one entry, where its front-most member is
+    const items = [];
+    const seen = new Set();
+    for (const b of shown) {
+      if (!b.group) { items.push({ ids: [b.id], blocks: [b] }); continue; }
+      if (seen.has(b.group)) continue;
+      seen.add(b.group);
+      const members = shown.filter((x) => x.group === b.group);
+      items.push(members.length > 1 ? { g: b.group, ids: members.map((x) => x.id), blocks: members } : { ids: [b.id], blocks: [b] });
+    }
+    // dropped after an entry: in front of the next one (grid: last on this page; flow: before the next block on the sheet)
+    const nextAfter = (i) => {
+      if (items[i + 1]) return items[i + 1].ids[0];
+      if (isFree()) return null;
+      const last = items[i].ids[items[i].ids.length - 1];
+      return order[order.findIndex((b) => b.id === last) + 1]?.id ?? null;
+    };
+    const firstOnPage = onPage[0]?.id ?? null;
+
+    const closed = !q && fold.has('p:' + p);
+    const head = h('li', { class: 'pagehead' + (closed ? ' closed' : ''), 'data-page': p, title: `Seite ${p + 1} anzeigen`,
+      onclick: () => $('pages').querySelectorAll('.page')[p]?.scrollIntoView({ block: 'start', behavior: 'smooth' }) },
+    foldBtn('p:' + p, !closed, `Seite ${p + 1}`),
+    h('span', { class: 'layer-name' }, `Seite ${p + 1}`),
+    h('span', { class: 'layer-num' }, onPage.length === 1 ? '1 Baustein' : `${onPage.length} Bausteine`));
+    head._ids = onPage.map((b) => b.id);
+    if (canDrag) dropOn(head, p, () => firstOnPage, false);
+    rows.push(head);
+    if (closed) continue;
+    if (!items.length) {
+      const empty = h('li', { class: 'empty-hint pageempty' }, isFree() ? 'Leere Seite – Bausteine hierher ziehen' : 'Leere Seite');
+      if (canDrag) dropOn(empty, p, () => null, false);
+      rows.push(empty);
+    }
+    items.forEach((it, i) => {
+      if (!it.g) {
+        const li = blockRow(it.blocks[0], false);
+        if (canDrag) dropOn(li, p, (after) => (after ? nextAfter(i) : it.ids[0]));
+        rows.push(li);
+        return;
+      }
+      const open = !!q || fold.has('g:' + it.g) || enteredGroup === it.g;
+      const all = groupIds(it.g);
+      const grp = h('li', { class: 'grouprow' + (it.blocks.every((b) => b.hidden) ? ' off' : ''), 'data-group': it.g,
+        title: 'Gruppe – Klick wählt die ganze Gruppe',
+        onclick: (e) => {
+          if (e.shiftKey || e.ctrlKey || e.metaKey) { toggleSelect(it.ids[0]); return; }
+          enteredGroup = null;
+          setSelection(all, { from: 'layers' });
+        } },
+      canDrag ? h('span', { class: 'grip', 'aria-hidden': 'true', title: 'Ziehen ändert die Reihenfolge oder die Seite' }, '⠿') : null,
+      foldBtn('g:' + it.g, open, 'Gruppe'),
+      h('span', { class: 'layer-name' }, `Gruppe · ${all.length} Bausteine`));
+      if (it.blocks.some((b) => b.locked)) grp.append(h('span', { class: 'lockmark', title: 'Enthält gesperrte Bausteine' }, svgIcon('lock')));
+      grp.append(eye(it.blocks));
+      grp._ids = all;
+      if (canDrag) { dragFrom(grp, all); dropOn(grp, p, (after) => (after && !open ? nextAfter(i) : it.ids[0])); }
+      rows.push(grp);
+      if (!open) return;
+      it.blocks.forEach((b, k) => {
+        const li = blockRow(b, true);
+        if (canDrag) dropOn(li, p, (after) => (after ? it.ids[k + 1] ?? nextAfter(i) : b.id));
+        rows.push(li);
+      });
+    });
+  }
+  const none = !doc.blocks.length || (q && !rows.length);
+  list.replaceChildren(...(none ? [h('li', { class: 'empty-hint' }, doc.blocks.length ? 'Nichts gefunden.' : 'Noch keine Bausteine – fügen Sie welche unter „Bausteine“ hinzu.')] : rows));
+  syncLayerSelection();
 }
 
 /** Everything that lists blocks: layers panel, inspector, title in the top bar. */
@@ -485,24 +666,105 @@ function add(type, index = doc.blocks.length, extra = {}) {
   const b = { id: uid(), ...TYPES[type].make(), ...extra };
   doc.blocks.splice(index, 0, b);
   selectOnly(b.id);
+  pendingScroll = { id: b.id };
   inspectorOpen = true;
   renderBlocks(); renderOverlay(); changed(40);
 }
 
-/** Free mode: add at an explicit spot, or below everything else. */
+/** Free mode: add at an explicit spot, or on the current page below what is there. */
 function addFree(type, spot, extra = {}) {
   const b = { id: uid(), ...TYPES[type].make(), ...extra };
   const w = defaultWidth(type);
-  const pos = spot || nextFreeSpot(doc.blocks, info.heights, info.headerH, 25);
+  const pos = spot || spotOnCurrentPage(25);
   b.layout = { page: pos.page, x: pos.x ?? 0, y: pos.y, w };
   doc.pageCount = Math.max(doc.pageCount, pos.page + 1);
   doc.blocks.push(b);
   selectOnly(b.id);
+  pendingScroll = { id: b.id };
   inspectorOpen = true;
   renderBlocks(); renderOverlay(); changed(40);
 }
 
-const addByClick = (type, extra) => (isFree() ? addFree(type, null, extra) : add(type, doc.blocks.length, extra));
+const addByClick = (type, extra) => (isFree() ? addFree(type, null, extra) : add(type, flowInsertIndex(), extra));
+
+// ---------------------------------------------------------- current page --
+
+/** Index of the page that fills most of the visible stage. */
+function visiblePage() {
+  const view = $('stage').getBoundingClientRect();
+  let best = 0;
+  let most = 0;
+  [...$('pages').querySelectorAll('.page')].forEach((el, i) => {
+    const r = el.getBoundingClientRect();
+    const area = Math.max(0, Math.min(r.bottom, view.bottom) - Math.max(r.top, view.top)) *
+      Math.max(0, Math.min(r.right, view.right) - Math.max(r.left, view.left));
+    if (area > most) { most = area; best = i; }
+  });
+  return best;
+}
+
+/** The page new blocks and pages go to: the page of the selection, else the page in view. */
+function currentPage() {
+  const list = selectedBlocks().filter((b) => !b.hidden);
+  if (list.length && isFree()) return Math.min(...list.map((b) => layoutOf(b).page));
+  const f = list.length && info.flow?.[list[list.length - 1].id];
+  return f ? (f.page1 ?? f.page) : visiblePage();
+}
+
+/** Mark the current page (where a click in the palette inserts) when there are several. */
+function markCurrentPage() {
+  const pages = [...$('pages').querySelectorAll('.page')];
+  const cur = pages.length > 1 ? currentPage() : -1;
+  pages.forEach((el, i) => el.classList.toggle('current', i === cur));
+}
+
+/** Insert an empty page after page `after` (never behind a booklet's back cover); returns its index. */
+function insertPageAfter(after) {
+  if (doc.booklet?.on && doc.booklet.backCover && doc.pageCount > 1) after = Math.min(after, doc.pageCount - 2);
+  insertPage(doc.blocks, after);
+  doc.pageCount++;
+  return after + 1;
+}
+
+/** Grid layout: a free spot of height h on the current page (or right after it). */
+function spotOnCurrentPage(h) {
+  const page = currentPage();
+  const spot = nextFreeSpot(doc.blocks, info.heights, info.headerH, h, 4, { page, pageCount: doc.pageCount });
+  if (spot.insert) spot.page = insertPageAfter(page);
+  return spot;
+}
+
+/** Flow layout: new blocks go after the selection, else after the last block on the page in view. */
+function flowInsertIndex() {
+  const sel = doc.blocks.map((b, i) => (selection.has(b.id) ? i : -1)).filter((i) => i >= 0);
+  if (sel.length) return Math.max(...sel) + 1;
+  const p = visiblePage();
+  let at = -1;
+  doc.blocks.forEach((b, i) => {
+    const f = info.flow?.[b.id];
+    // a page break ends the page: new blocks go in front of it
+    if (f && b.type !== 'pagebreak' && f.page <= p && p <= (f.page1 ?? f.page)) at = i;
+  });
+  return at < 0 ? doc.blocks.length : at + 1;
+}
+
+/** Scroll a newly added block or page into view once it is on the canvas. */
+function scrollToPending() {
+  const p = pendingScroll;
+  if (!p) return;
+  if (p.id) {
+    if (!doc.blocks.some((b) => b.id === p.id)) { pendingScroll = null; return; }
+    const el = rects.get(p.id);
+    if (!el || el.hidden) return;
+    pendingScroll = null;
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } else {
+    const el = $('pages').querySelectorAll('.page')[p.page];
+    if (!el) return;
+    pendingScroll = null;
+    el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+}
 
 function remove(id) {
   if (doc.blocks.find((b) => b.id === id)?.locked) { toast('Gesperrte Bausteine können nicht gelöscht werden. Erst entsperren.'); return; }
@@ -568,6 +830,7 @@ function flowDropIndex(clientX, clientY) {
 /** Open the properties of a block in the inspector. */
 function editBlock(id) {
   inspectorOpen = true;
+  enteredGroup = blockById(id)?.group || null; // a member of a group: work inside the group
   setSelection([id]);
   renderInspector();
   $('inspector').querySelector('fieldset:not([disabled]) input, fieldset:not([disabled]) textarea, fieldset:not([disabled]) select')?.focus();
@@ -628,7 +891,7 @@ function insertCopies(list, at = null) {
     const minPage = Math.min(...ls.map((l) => l.page));
     const minY = Math.min(...ls.filter((l) => l.page === minPage).map((l) => l.y));
     const height = Math.max(...ls.filter((l) => l.page === minPage).map((l, i) => l.y + (info.heights[list[i]?.id] ?? 20))) - minY;
-    const spot = at || nextFreeSpot(doc.blocks, info.heights, info.headerH, Math.max(20, height));
+    const spot = at || spotOnCurrentPage(Math.max(20, height));
     copies.forEach((c, i) => {
       const l = ls[i];
       const w = Math.min(l.w, BODY_W);
@@ -638,8 +901,7 @@ function insertCopies(list, at = null) {
       doc.blocks.push(c);
     });
   } else {
-    const last = Math.max(-1, ...doc.blocks.map((b, i) => (selection.has(b.id) ? i : -1)));
-    doc.blocks.splice(last < 0 ? doc.blocks.length : last + 1, 0, ...copies);
+    doc.blocks.splice(flowInsertIndex(), 0, ...copies);
   }
   setSelection(copies.map((c) => c.id), { quiet: true });
   renderBlocks(); renderOverlay(); changed(0);
@@ -856,32 +1118,76 @@ function selectOnly(id) {
 
 function setSelection(ids, { from, quiet = false } = {}) {
   selection = new Set(ids);
+  // selecting anything outside the entered group leaves it
+  const left = enteredGroup && (!selection.size || [...selection].some((id) => blockById(id)?.group !== enteredGroup));
+  if (left) enteredGroup = null;
   inspectGroup = null;
   headerSelected = false;
   $('rects').querySelector('.hdrbox')?.classList.remove('sel');
   selectedId = selection.size === 1 ? [...selection][0] : null;
   if (quiet) return;
+  if (left) renderLayers(); // the group closes again in the layers panel
   rects.forEach((el, bid) => el.classList.toggle('sel', selection.has(bid)));
-  document.querySelectorAll('#layers li').forEach((li) => li.classList.toggle('sel', selection.has(li.dataset.id)));
+  syncLayerSelection();
   document.body.classList.toggle('multisel', selection.size > 1);
   if (inspectedId !== selectedId) renderInspector();
   renderSelectionBox();
+  markCurrentPage();
   if (selectedId && from === 'layers') rects.get(selectedId)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   updateChipsText();
 }
 
+/** Inside the entered group a block is selected on its own, elsewhere with its group. */
+const insideGroup = (id) => !!enteredGroup && blockById(id)?.group === enteredGroup;
+
 /** Select a block (with its group); null clears the selection. */
 function select(id, opts = {}) {
-  setSelection(id ? withGroups([id]) : [], opts);
+  setSelection(id ? (insideGroup(id) ? [id] : withGroups([id])) : [], opts);
 }
 
 /** Shift/Ctrl click: add the block (and its group) to the selection or take it out. */
 function toggleSelect(id) {
-  const ids = withGroups([id]);
+  const ids = insideGroup(id) ? [id] : withGroups([id]);
   const next = new Set(selection);
   const has = [...ids].every((x) => next.has(x));
   ids.forEach((x) => (has ? next.delete(x) : next.add(x)));
   setSelection(next);
+}
+
+/** The whole group is selected, and a further click on `id` would select just that member? */
+function canEnterGroup(id) {
+  const g = blockById(id)?.group;
+  return !!g && g !== enteredGroup && selectionIsGroup() && selectedBlocks()[0].group === g;
+}
+
+/** Work inside the group of `id`: only this member is selected. */
+function enterGroup(id, { from = 'canvas' } = {}) {
+  const b = blockById(id);
+  if (!b?.group) return;
+  const again = enteredGroup === b.group;
+  enteredGroup = b.group;
+  setSelection([id], { from });
+  if (!again) renderLayers(); // the group opens in the layers panel
+}
+
+/** Leave the entered group; the whole group is selected again. */
+function leaveGroup() {
+  const g = enteredGroup;
+  if (!g) return;
+  enteredGroup = null;
+  setSelection(doc.blocks.filter((b) => b.group === g).map((b) => b.id));
+  renderLayers();
+}
+
+/** Frame settings of a block's group (from a single member's quick menu). */
+function openGroupFrame(id) {
+  const g = blockById(id)?.group;
+  if (!g) return;
+  enteredGroup = null;
+  setSelection(withGroups([id]));
+  inspectGroup = g;
+  inspectorOpen = true;
+  renderInspector();
 }
 
 // ------------------------------------------------- selection: group, align --
@@ -892,7 +1198,7 @@ function groupSelection() {
   const g = 'g' + uid();
   const frame = list.find((b) => b.groupFrame)?.groupFrame;
   list.forEach((b) => { b.group = g; if (frame) b.groupFrame = { ...frame }; else delete b.groupFrame; });
-  toast(`${list.length} Bausteine gruppiert – ein Klick wählt jetzt die ganze Gruppe.`);
+  toast(`${list.length} Bausteine gruppiert – ein Klick wählt die ganze Gruppe, ein weiterer Klick einen einzelnen Baustein.`);
   renderBlocks(); renderOverlay(); changed(0);
 }
 
@@ -904,11 +1210,15 @@ function ungroupSelection() {
   renderBlocks(); renderOverlay(); changed(0);
 }
 
-/** One group covers the whole selection? */
+/** The selection is exactly one whole group? */
 const selectionIsGroup = () => {
   const list = selectedBlocks();
-  return list.length > 1 && list[0].group && list.every((b) => b.group === list[0].group);
+  const g = list[0]?.group;
+  return list.length > 1 && !!g && list.every((b) => b.group === g) && doc.blocks.filter((b) => b.group === g).length === list.length;
 };
+
+/** Units for aligning and distributing: a group moves as one (except the entered group). */
+const selectionUnits = () => layoutUnits(selectedBlocks(), info.heights, enteredGroup);
 
 function lockSelection() {
   const list = selectedBlocks();
@@ -953,51 +1263,20 @@ const clampX = (x, w) => Math.min(Math.max(0, x), Math.max(0, BODY_W - w));
  *  mode: left | hcenter | right | top | vcenter | bottom */
 function alignSelection(mode) {
   if (!isFree()) { toast('Ausrichten geht im Raster-Layout (Dokument → Seite → Layout).'); return; }
-  const items = selectedBlocks().map((b) => ({ b, l: layoutOf(b), h: info.heights[b.id] ?? 20 }));
-  if (!items.length) return;
-  const one = items.length === 1;
-  const ref = one
-    ? { left: 0, right: BODY_W, top: 0, bottom: contentHeight(items[0].l.page, info.headerH) }
-    : {
-      left: Math.min(...items.map((i) => i.l.x)), right: Math.max(...items.map((i) => i.l.x + i.l.w)),
-      top: Math.min(...items.map((i) => i.l.y)), bottom: Math.max(...items.map((i) => i.l.y + i.h)),
-    };
-  let skipped = 0;
-  for (const i of items) {
-    if (i.b.locked) { skipped++; continue; }
-    let { x, y } = i.l;
-    if (mode === 'left') x = ref.left;
-    if (mode === 'right') x = ref.right - i.l.w;
-    if (mode === 'hcenter') x = (ref.left + ref.right - i.l.w) / 2;
-    if (mode === 'top') y = ref.top;
-    if (mode === 'bottom') y = ref.bottom - i.h;
-    if (mode === 'vcenter') y = (ref.top + ref.bottom - i.h) / 2;
-    i.b.layout = { ...i.l, x: round05(clampX(x, i.l.w)), y: round05(Math.max(0, y)) };
-  }
+  const units = selectionUnits();
+  if (!units.length) return;
+  const skipped = alignUnits(units, mode, contentHeight(units[0].page, info.headerH));
   if (skipped) toast('Gesperrte Bausteine wurden nicht verschoben.');
   renderBlocks(); renderOverlay(); changed(0);
 }
 
-/** Equal gaps between the selected blocks (at least three, on one page). axis: 'h' | 'v' */
+/** Equal gaps between the selected blocks (at least three, on one page); a group counts as one. axis: 'h' | 'v' */
 function distributeSelection(axis) {
   if (!isFree()) { toast('Verteilen geht im Raster-Layout (Dokument → Seite → Layout).'); return; }
-  const items = selectedBlocks().map((b) => ({ b, l: layoutOf(b), h: info.heights[b.id] ?? 20 }));
-  if (items.length < 3) { toast('Zum Verteilen mindestens drei Bausteine auswählen.'); return; }
-  if (new Set(items.map((i) => i.l.page)).size > 1) { toast('Verteilen geht nur mit Bausteinen auf derselben Seite.'); return; }
-  const pos = (i) => (axis === 'h' ? i.l.x : i.l.y);
-  const size = (i) => (axis === 'h' ? i.l.w : i.h);
-  items.sort((a, c) => pos(a) - pos(c));
-  const first = items[0];
-  const last = items[items.length - 1];
-  const gap = (pos(last) + size(last) - pos(first) - items.reduce((sum, i) => sum + size(i), 0)) / (items.length - 1);
-  let cur = pos(first) + size(first) + gap;
-  let skipped = 0;
-  for (const i of items.slice(1, -1)) {
-    if (i.b.locked) skipped++;
-    else if (axis === 'h') i.b.layout = { ...i.l, x: round05(clampX(cur, i.l.w)) };
-    else i.b.layout = { ...i.l, y: round05(Math.max(0, cur)) };
-    cur += size(i) + gap;
-  }
+  const units = selectionUnits();
+  if (units.length < 3) { toast('Zum Verteilen mindestens drei Bausteine oder Gruppen auswählen.'); return; }
+  if (new Set(units.flatMap((u) => u.items.map((i) => i.l.page))).size > 1) { toast('Verteilen geht nur mit Bausteinen auf derselben Seite.'); return; }
+  const skipped = distributeUnits(units, axis);
   if (skipped) toast('Gesperrte Bausteine wurden nicht verschoben.');
   renderBlocks(); renderOverlay(); changed(0);
 }
@@ -1028,17 +1307,18 @@ function openQuickPop(anchor, items) {
 }
 
 function openAlignMenu(anchor) {
-  const one = selection.size === 1;
-  const items = ALIGN_ITEMS.map(([mode, icon, label]) => [icon, one ? `${label} (auf der Seite)` : label, () => alignSelection(mode)]);
+  const n = selectionUnits().length;
+  const items = ALIGN_ITEMS.map(([mode, icon, label]) => [icon, n === 1 ? `${label} (auf der Seite)` : label, () => alignSelection(mode)]);
   items.push(
-    ['distH', 'Horizontal gleichmäßig verteilen', () => distributeSelection('h'), selection.size < 3],
-    ['distV', 'Vertikal gleichmäßig verteilen', () => distributeSelection('v'), selection.size < 3],
+    ['distH', 'Horizontal gleichmäßig verteilen', () => distributeSelection('h'), n < 3],
+    ['distV', 'Vertikal gleichmäßig verteilen', () => distributeSelection('v'), n < 3],
   );
   openQuickPop(anchor, items);
 }
 
 /** Dashed frame around a multi-selection, with its quick menu. */
 function renderSelectionBox() {
+  renderGroupOutline();
   let wrap = $('selbox');
   const shown = [...selection].map((id) => rects.get(id)).filter((el) => el && !el.hidden);
   if (selection.size < 2 || !shown.length || drag?.members) { if (wrap) wrap.hidden = true; return; }
@@ -1056,6 +1336,7 @@ function renderSelectionBox() {
   wrap.hidden = false;
   const list = selectedBlocks();
   const isGroup = selectionIsGroup();
+  const units = selectionUnits().length;
   const allLocked = list.every((b) => b.locked);
   const tool = (icon, title, fn, opts = {}) => {
     const t = h('button', { title, 'aria-label': title, class: opts.cls || '', disabled: opts.disabled || null,
@@ -1068,19 +1349,37 @@ function renderSelectionBox() {
     h('span', { class: 'mtools', role: 'toolbar', 'aria-label': 'Auswahl' },
       isGroup
         ? tool('ungroup', 'Gruppierung aufheben (Strg+Umschalt+G)', ungroupSelection)
-        : tool('group', 'Gruppieren (Strg+G)', groupSelection),
+        : enteredGroup ? null : tool('group', 'Gruppieren (Strg+G)', groupSelection),
       isGroup ? tool('frame', 'Rahmen & Hintergrund der Gruppe', () => {
         inspectGroup = list[0].group;
         inspectorOpen = true;
         renderInspector();
       }, { cls: list.some((b) => b.groupFrame) ? 'on' : '' }) : null,
       tool('alignLeft', 'Ausrichten und verteilen', openAlignMenu, { cls: 'aligntool', disabled: !isFree() }),
-      tool('distH', 'Horizontal gleichmäßig verteilen', () => distributeSelection('h'), { cls: 'aligntool', disabled: !isFree() || list.length < 3 }),
-      tool('distV', 'Vertikal gleichmäßig verteilen', () => distributeSelection('v'), { cls: 'aligntool', disabled: !isFree() || list.length < 3 }),
+      tool('distH', 'Horizontal gleichmäßig verteilen', () => distributeSelection('h'), { cls: 'aligntool', disabled: !isFree() || units < 3 }),
+      tool('distV', 'Vertikal gleichmäßig verteilen', () => distributeSelection('v'), { cls: 'aligntool', disabled: !isFree() || units < 3 }),
       tool(allLocked ? 'unlock' : 'lock', allLocked ? 'Alle entsperren' : 'Alle sperren', lockSelection),
       tool('copy', 'Duplizieren', duplicateSelection),
       tool('clipboard', 'Kopieren', () => copyBlocks(selectedBlocks())),
       tool('trash', 'Löschen', deleteSelection, { cls: 'danger', disabled: allLocked })));
+}
+
+/** Dashed outline around the group the user clicked into. */
+function renderGroupOutline() {
+  let el = $('groupbox');
+  const shown = enteredGroup
+    ? doc.blocks.filter((b) => b.group === enteredGroup).map((b) => rects.get(b.id)).filter((r) => r && !r.hidden) : [];
+  if (!shown.length) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = h('div', { id: 'groupbox', class: 'groupbox' }, h('span', { class: 'groupchip' }, 'In der Gruppe · Esc verlässt sie'));
+    $('rects').append(el);
+  }
+  const box = shown.reduce((a, r) => {
+    const l = parseFloat(r.style.left); const t = parseFloat(r.style.top);
+    return { l: Math.min(a.l, l), t: Math.min(a.t, t), r: Math.max(a.r, l + parseFloat(r.style.width)), b: Math.max(a.b, t + parseFloat(r.style.height)) };
+  }, { l: Infinity, t: Infinity, r: -Infinity, b: -Infinity });
+  Object.assign(el.style, { left: box.l - 6 + 'px', top: box.t - 6 + 'px', width: box.r - box.l + 12 + 'px', height: box.b - box.t + 12 + 'px' });
+  el.hidden = false;
 }
 
 // ------------------------------------------------------- layout controls --
@@ -1127,10 +1426,16 @@ function flowPageIndex() {
   }
   return doc.blocks.length;
 }
+/** A new page after the current one (flow: a page break after the selection or the page in view). */
 function addPage() {
-  if (!isFree()) { add('pagebreak', flowPageIndex()); return; }
-  doc.pageCount++; changed(0);
+  if (!isFree()) { add('pagebreak', Math.min(flowInsertIndex(), flowPageIndex())); return; }
+  const page = insertPageAfter(currentPage());
+  setSelection([]);
+  pendingScroll = { page };
+  toast(`Seite ${page + 1} eingefügt.`);
+  renderBlocks(); renderOverlay(); changed(0);
 }
+/** Grid layout: remove the current page if it is empty. Flow: remove a trailing page break. */
 function removePage() {
   if (!isFree()) {
     const lastBlock = doc.blocks[flowPageIndex() - 1];
@@ -1139,14 +1444,15 @@ function removePage() {
     $('error').textContent = 'Auf der letzten Seite liegen noch Bausteine. Seiten entstehen im Fluss-Layout durch den Inhalt; entfernen Sie Bausteine oder einen Seitenumbruch.';
     return;
   }
-  const last = doc.pageCount - 1;
-  if (last < 1) return;
-  if (doc.blocks.some((b) => layoutOf(b).page === last)) {
-    $('error').hidden = false;
-    $('error').textContent = 'Auf der letzten Seite liegen noch Bausteine. Bitte zuerst verschieben oder löschen.';
+  if (doc.pageCount < 2) return;
+  const page = Math.min(currentPage(), doc.pageCount - 1);
+  if (!removeEmptyPage(doc.blocks, page)) {
+    toast(`Auf Seite ${page + 1} liegen noch Bausteine. Bitte zuerst verschieben oder löschen.`);
     return;
   }
-  doc.pageCount--; changed(0);
+  doc.pageCount--;
+  toast(`Seite ${page + 1} entfernt.`);
+  renderBlocks(); renderOverlay(); changed(0);
 }
 
 // ------------------------------------------------------------ file actions --
@@ -1410,6 +1716,10 @@ async function init() {
     setInstalledThemes(Array.isArray(list) ? list : []);
     if (document.body.dataset.view === 'editor') renderDocPanel();
   }).catch(() => { /* no add-on designs */ });
+  fetch('/api/themes/config').then((r) => r.json()).then((c) => {
+    setThemeImport(c.importAllowed);
+    if (document.body.dataset.view === 'editor') renderDocPanel();
+  }).catch(() => { /* an older server: no import */ });
   $('mode-student').addEventListener('click', () => setMode('student'));
   $('mode-solution').addEventListener('click', () => setMode('solution'));
   $('btn-undo').addEventListener('click', () => undoRedo(-1));
@@ -1462,6 +1772,7 @@ async function init() {
       e.preventDefault();
       if (selection.size === 1) remove([...selection][0]); else deleteSelection();
     }
+    if (e.key === 'Escape' && enteredGroup && !paletteDrag) { leaveGroup(); return; }
     if (e.key === 'Escape' && (selection.size || headerSelected) && !paletteDrag) select(null);
   });
 
@@ -1477,6 +1788,13 @@ async function init() {
   document.addEventListener('scroll', closeTip, true);
   $('btn-addpage').addEventListener('click', addPage);
   $('btn-rmpage').addEventListener('click', removePage);
+  // the page in view is where the palette inserts: keep its mark up to date while scrolling
+  let markQueued = false;
+  $('stage').addEventListener('scroll', () => {
+    if (markQueued) return;
+    markQueued = true;
+    requestAnimationFrame(() => { markQueued = false; markCurrentPage(); });
+  }, { passive: true });
   $('btn-arrange').addEventListener('click', autoArrange);
 
   // image search dialog
@@ -1496,19 +1814,19 @@ init();
 export {
   ALIGN_ITEMS, CLIP_KEY, DROP_PREVIEW_H, MM_PX, STORE_KEY, ZOOMS, add, addByClick, addFree, addPage,
   alignSelection, applyMode, applySpreads, applyZoom, assessmentFields, autoArrange, autoScrollStage, blockById,
-  blockSummary, cancelPaletteDrag, changed, chips, clampX, clearDropline, cols, copyBlock, copyBlocks, createDoc,
+  blockSummary, canEnterGroup, cancelPaletteDrag, changed, chips, clampX, clearDropline, cols, copyBlock, copyBlocks, createDoc,
   deleteSelection, displayOrder, distributeSelection, doc, download, downloadBooklet, downloadHtml, downloadPdf,
-  duplicate, duplicateSelection, editBlock, emptyDoc, endPaletteDrag, exNumbers, exportFile, fillSelect,
+  duplicate, duplicateSelection, editBlock, emptyDoc, enterGroup, enteredGroup, endPaletteDrag, exNumbers, exportFile, fillSelect,
   finishPaletteDrag, flowDropIndex, flowPageIndex, flushSave, fontLabel, groupSelection, headerInspector,
   headerSelected, history, importTemplates, importText, info, init, initTitleEdit, insertCopies, inspectGroup,
   inspectedId, inspectorOpen, isFree, isOver, layerDrag, layerOrder, layoutText, leaveEditor, licenseDialog,
-  lockSelection, memClipboard, migrateBlock, migrateLegacy, mode, moveBy, moveLayer, normalize, onPaletteMove,
-  openAlignMenu, openEditor, openQuickPop, paletteDrag, paletteDragJustEnded, paletteDropTarget, paletteFilter,
+  leaveGroup, lockSelection, memClipboard, migrateBlock, migrateLegacy, mode, moveBy, moveLayer, moveLayers, moveToPage, normalize, onPaletteMove,
+  markCurrentPage, openAlignMenu, openEditor, openGroupFrame, openQuickPop, paletteDrag, paletteDragJustEnded, paletteDropTarget, paletteFilter,
   pasteBlock, pendingArrange, pendingPlace, placeAtBottom, recordHistory, remove, removePage, renderBlocks,
   renderInspector, renderLayers, renderPalette, renderPaletteFilter, renderSelectionBox, reserveSidebars,
-  resetHistory, round05, route, routing, safeName, save, saveTemplate, saveTimer, select, selectHeader,
-  selectOnly, selectedBlocks, selectedId, selection, selectionIsGroup, setAssessment, setDoc, setInfo,
+  resetHistory, round05, route, scrollToPending, routing, safeName, save, saveTemplate, saveTimer, select, selectHeader,
+  selectOnly, selectedBlocks, selectedId, selection, selectionIsGroup, selectionUnits, setAssessment, setDoc, setInfo,
   setInspectGroup, setInspectorOpen, setLayoutMode, setMode, setPendingArrange, setSelection, setZoom, showPane,
   showTab, showTitle, snapshotNow, spreads, startPaletteDrag, stepZoom, syncSettings, syncTopbar, toggleLock,
-  toggleSelect, undoRedo, ungroupSelection, updatePaletteDrag, updateUndoButtons, withGroups, zoom,
+  syncLayerSelection, toggleSelect, undoRedo, ungroupSelection, updatePaletteDrag, updateUndoButtons, withGroups, zoom,
 };

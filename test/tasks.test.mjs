@@ -1,7 +1,7 @@
 // Inline bold / italic and content blocks used as tasks ("Als Aufgabe").
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emphasisParts, inline } from '../src/typst-util.js';
+import { emphasisParts, inline, leadWords } from '../src/typst-util.js';
 import { toTypst } from '../src/toTypst.js';
 import { isExercise, isTask } from '../public/layout.js';
 
@@ -51,4 +51,15 @@ test('toTypst: a cloze whose first line holds a gap lifts number and points to i
   assert.match(toTypst(doc, { assets: new Map() }), /\], rise: [^)]+\)/);
   const late = { ...doc, blocks: [{ ...doc.blocks[0], text: 'x '.repeat(200) + '[[Lücke]]' }] };
   assert.doesNotMatch(toTypst(late, { assets: new Map() }), /\], rise:/);
+});
+
+test('number "im Text": the first line is split into words, the rest follows; no text first -> indented', () => {
+  const r = leadWords(['Die *rote* Sonne ', '#gap-blank(3em)', ', $x^2$ ok\nZeile zwei']);
+  assert.deepEqual(r.words, ['#"Die"', '#emph[#"rote"]', '#"Sonne"', '#gap-blank(3em)#","', '$x^2$', '#"ok"']);
+  assert.match(r.tail, /^ #linebreak\(\) #"Zeile zwei"$/);
+  const doc = (extra) => ({ layoutMode: 'flow', numbering: { layout: 'inline' }, blocks: [{ id: 'c', type: 'cloze', text: 'Ein [[Wort]] hier.', ...extra }] });
+  const src = toTypst(doc({}), { assets: new Map() });
+  assert.match(src, /#ex-inline\("1", "[^"]*", 0, \(\[#"Ein"\], \[#gap-blank\([\d.]+em\)\], \[#"hier\."\]\), \[\], \[\]\)/);
+  assert.ok(!toTypst(doc({ wordbank: true }), { assets: new Map() }).includes('#ex-inline('));
+  assert.ok(!toTypst(doc({ numberLayout: 'indent' }), { assets: new Map() }).includes('#ex-inline('));
 });

@@ -43,19 +43,46 @@ export function emphasisParts(t) {
   return out;
 }
 
+// Holes in user text (the gaps of a cloze) are marked \u0000n\u0000 while the text is formatted,
+// so **bold** and *italic* may span them; the program's own markup is put in afterwards.
+export const HOLE = /\u0000(\d+)\u0000/;
+const HOLES = /\u0000(\d+)\u0000/g;
+
+/** Text with holes -> user text marked with \u0000n\u0000 (any \u0000 the user typed is dropped) and the holes. */
+export function withHoles(parts) {
+  const holes = [];
+  const text = parts.map((p, i) => (i % 2 ? `\u0000${holes.push(p) - 1}\u0000` : String(p ?? '').replace(/\u0000/g, ''))).join('');
+  return { text, fill: (out) => out.replace(HOLES, (_, n) => holes[n]) };
+}
+
+/** Text as string literals; holes stay outside the literals. */
+const lit = (t) => String(t).split(HOLE).map((x, i) => (i % 2 ? `\u0000${x}\u0000` : x ? `#${S(x)}` : '')).join('');
+
 /** One line of user text as Typst markup, with **bold** and *italic*. */
 const emphasized = (line) => emphasisParts(line).map(({ text, style }) => (
-  style === 'bold' ? `#strong[#${S(text)}]` : style === 'italic' ? `#emph[#${S(text)}]` : `#${S(text)}`
+  style === 'bold' ? `#strong[${lit(text)}]` : style === 'italic' ? `#emph[${lit(text)}]` : lit(text)
 )).join('');
 
+/** Text without the formatting marks (**, *, $), e.g. to size a gap. */
+export const plainText = (t) => String(t ?? '').replace(/\*\*|[*$]/g, '');
+
+/** User text with holes: parts alternate text and ready-made markup, [text, markup, text, …].
+ *  **bold** and *italic* may span the holes; a formula with a hole stays plain text. */
+export function inlineParts(parts) {
+  const { text, fill } = withHoles(parts);
+  return fill(inlineMarkup(text));
+}
+
 /** Inline text for markup mode. Supports $math$, line breaks, **bold** and *italic*. */
-export function inline(t) {
+export const inline = (t) => inlineMarkup(String(t ?? '').replace(/\u0000/g, ''));
+
+function inlineMarkup(t) {
   const out = [];
-  String(t ?? '').split(/(\$[^$\n]+\$)/g).forEach((part) => {
+  t.split(/(\$[^$\n]+\$)/g).forEach((part) => {
     if (!part) return;
     if (/^\$[^$\n]+\$$/.test(part)) {
-      const m = safeMath(part.slice(1, -1));
-      out.push(m && mathOk(m) ? part : '#' + S(part));
+      const m = !HOLE.test(part) && safeMath(part.slice(1, -1));
+      out.push(m && mathOk(m) ? part : lit(part));
     } else {
       out.push(
         part
@@ -66,6 +93,32 @@ export function inline(t) {
     }
   });
   return out.join('');
+}
+
+/** The first line of user text (with holes, as for inlineParts) as single words, for a layout that
+ *  fills the first printed line itself; tail = the markup of the following lines.
+ *  A word keeps its formatting; a formula or a hole belongs to the word it touches. */
+export function leadWords(parts) {
+  const { text, fill } = withHoles(parts);
+  const nl = text.search(/\r?\n/);
+  const first = nl < 0 ? text : text.slice(0, nl);
+  const words = [[]];
+  const piece = (m) => words[words.length - 1].push(m);
+  const gap = () => { if (words[words.length - 1].length) words.push([]); };
+  const plain = (t, style) => t.split(/(\s+)/).forEach((w, i) => {
+    if (i % 2) gap();
+    else if (w) piece(style === 'bold' ? `#strong[${lit(w)}]` : style === 'italic' ? `#emph[${lit(w)}]` : lit(w));
+  });
+  first.split(/(\$[^$\n]+\$)/g).forEach((part) => {
+    if (!part) return;
+    const m = /^\$[^$\n]+\$$/.test(part) && !HOLE.test(part) && safeMath(part.slice(1, -1));
+    if (m && mathOk(m)) piece(part);
+    else emphasisParts(part).forEach(({ text: t, style }) => plain(t, style));
+  });
+  return {
+    words: words.filter((w) => w.length).map((w) => fill(w.join(''))),
+    tail: nl < 0 ? '' : fill(' #linebreak() ' + inlineMarkup(text.slice(nl).replace(/^\r?\n/, ''))),
+  };
 }
 
 export const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
