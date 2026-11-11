@@ -30,12 +30,16 @@ export const diagramItems = (t) => lines(t).map((s) => {
   return m ? { text: m[1], blank: true } : { text: s, blank: false };
 });
 
-function boxMarkup(it, x, y, bw, bh, c, sol, size = 8.5) {
+/** One box; `width` is a Typst length ("30mm", "100%"). */
+function boxShape(it, width, bh, c, sol, size = 8.5) {
   const label = !it.blank
     ? `text(size: ${size}pt)[${inline(it.text)}]`
     : sol ? `text(size: ${size}pt, fill: ok.darken(25%), weight: "bold")[${inline(it.text)}]` : 'none';
-  return `place(dx: ${mm(x)}, dy: ${mm(y)}, box(width: ${mm(bw)}, height: ${mm(bh)}, fill: rgb("${c.box}"), radius: 2.5mm, inset: 3pt, align(center + horizon, ${label})))`;
+  return `box(width: ${width}, height: ${mm(bh)}, fill: rgb("${c.box}"), radius: 2.5mm, inset: 3pt, align(center + horizon, ${label}))`;
 }
+
+const boxMarkup = (it, x, y, bw, bh, c, sol, size) =>
+  `place(dx: ${mm(x)}, dy: ${mm(y)}, ${boxShape(it, mm(bw), bh, c, sol, size)})`;
 
 /** Filled triangle with its tip at (tx, ty) pointing along (ux, uy). */
 function arrowHead(tx, ty, ux, uy, len, width, color) {
@@ -148,43 +152,32 @@ export function chainBody(b, { sol, T }, w) {
   const c = colorsOf(b.color, 'rose');
   if (items.length < 2) return `${intro(b)}#text(size: 9pt, fill: luma(140), style: "italic", ${S(T.fewItems)})`;
   const n = items.length;
-  const parts = [];
-  // box size in mm from the inspector; 0 or empty = automatic, too wide is capped at what fits
-  const boxW = (auto, max) => (num(b.boxWidth) > 0 ? Math.min(max, Math.max(8, num(b.boxWidth))) : auto);
+  const gap = 8;
+  // Box size in mm from the inspector; 0 or empty = automatic. Boxes that would fill the line
+  // become fractions, so Typst gives them the line's real width: `w` is only an estimate (number
+  // and points beside an exercise take less room than reserved), and fixed-width boxes left a
+  // margin on both sides.
   const boxH = (auto) => (num(b.boxHeight) > 0 ? clamp(num(b.boxHeight), 6, 80) : auto);
-  let W;
-  let H;
+  const wanted = (auto) => (num(b.boxWidth) > 0 ? Math.max(8, num(b.boxWidth)) : auto);
+  const shaft = (x1, y1, x2, y2) => `place(line(start: (${mm(x1)}, ${mm(y1)}), end: (${mm(x2)}, ${mm(y2)}), stroke: 1.4mm + rgb("${c.arrow}")))`;
+  let body;
   if (b.direction === 'column') {
-    const bw = boxW(Math.min(w, 60), w);
+    const fill = wanted(60) >= w;
+    const bw = fill ? w : wanted(60);
     const bh = boxH(12);
-    const gap = 8;
-    W = bw;
-    H = n * bh + (n - 1) * gap;
-    items.forEach((it, i) => {
-      const y = i * (bh + gap);
-      parts.push(boxMarkup(it, 0, y, bw, bh, c, sol));
-      if (i < n - 1) {
-        parts.push(`place(line(start: (${mm(bw / 2)}, ${mm(y + bh + 1)}), end: (${mm(bw / 2)}, ${mm(y + bh + gap - 4)}), stroke: 1.4mm + rgb("${c.arrow}")))`);
-        parts.push(arrowHead(bw / 2, y + bh + gap - 1, 0, 1, 3.5, 4.5, c.arrow));
-      }
-    });
+    const arrow = `box(width: 4.5mm, height: ${mm(gap)}, { ${shaft(2.25, 1, 2.25, gap - 4)}; ${arrowHead(2.25, gap - 1, 0, 1, 3.5, 4.5, c.arrow)} })`;
+    const parts = items.map((it) => boxShape(it, fill ? '100%' : mm(bw), bh, c, sol));
+    body = `#align(center, block(width: ${fill ? '100%' : mm(bw)}, stack(dir: ttb, ${parts.join(`, align(center, ${arrow}), `)})))`;
   } else {
-    const gap = 8;
     const fit = (w - (n - 1) * gap) / n;
-    const bw = boxW(Math.min(42, fit), fit);
+    const fill = wanted(42) >= fit;
+    const bw = fill ? fit : wanted(42);
     const bh = boxH(clamp(bw * 0.6, 11, 16));
-    W = n * bw + (n - 1) * gap;
-    H = bh;
-    items.forEach((it, i) => {
-      const x = i * (bw + gap);
-      parts.push(boxMarkup(it, x, 0, bw, bh, c, sol));
-      if (i < n - 1) {
-        parts.push(`place(line(start: (${mm(x + bw + 1)}, ${mm(bh / 2)}), end: (${mm(x + bw + gap - 4)}, ${mm(bh / 2)}), stroke: 1.4mm + rgb("${c.arrow}")))`);
-        parts.push(arrowHead(x + bw + gap - 1, bh / 2, 1, 0, 3.5, 4.5, c.arrow));
-      }
-    });
+    const arrow = `box(width: ${mm(gap)}, height: ${mm(bh)}, { ${shaft(1, bh / 2, gap - 4, bh / 2)}; ${arrowHead(gap - 1, bh / 2, 1, 0, 3.5, 4.5, c.arrow)} })`;
+    const col = fill ? '1fr' : mm(bw);
+    const columns = items.flatMap((_, i) => (i ? [mm(gap), col] : [col]));
+    const parts = items.map((it) => boxShape(it, '100%', bh, c, sol));
+    body = `#align(center, grid(columns: (${columns.join(', ')}), ${parts.join(`, ${arrow}, `)}))`;
   }
-  return `${intro(b)}${wordBank(items, b, c, T)}#align(center, box(width: ${mm(W)}, height: ${mm(H)}, {
-  ${parts.join('\n  ')}
-}))`;
+  return `${intro(b)}${wordBank(items, b, c, T)}${body}`;
 }
