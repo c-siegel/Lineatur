@@ -2,7 +2,7 @@
 
 Die Version wird nur in `package.json` gesetzt. Dashboard, Server, HTML-Export und die portable App (`Lineatur-<version>-portable.exe`) lesen sie von dort.
 
-## Unveröffentlicht
+## 1.2.0 – Bessere Formatierungen, Gruppierung und Seitendesignimport im UI
 
 - **Gruppen beim Ausrichten und Verteilen**: Eine Gruppe zählt als ein Element. Ihre Bausteine behalten ihre Abstände zueinander; ist ein Baustein der Gruppe gesperrt, bleibt die ganze Gruppe stehen.
 - **In die Gruppe hineinklicken**: Ist eine Gruppe ausgewählt, wählt ein weiterer Klick nur den angeklickten Baustein. Er lässt sich dann verschieben und bearbeiten, ohne die Gruppe aufzulösen; ein gestrichelter Rahmen zeigt die Gruppe, `Esc` wählt wieder die ganze Gruppe. Rahmen und Hintergrund der Gruppe bleiben über die Schnellleiste des Bausteins erreichbar.
