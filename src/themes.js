@@ -2,7 +2,7 @@
 //
 // A design is a folder with a theme.js and its Typst files, e.g. themes/projektheft/.
 // The server loads every folder in themes/ at startup; the core app ships none
-// (designs tied to one institution live in extras/ and are copied in when wanted).
+// (designs tied to one institution live in their own repositories and are copied in when wanted).
 //
 // theme.js exports default {
 //   name, label, hint,                  // id (stored as doc.theme), name in the list, explanation

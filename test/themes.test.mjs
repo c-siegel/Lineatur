@@ -9,12 +9,20 @@ import { loadThemes, getTheme, themeList } from '../src/themes.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-test('the Projektheft design in extras/ loads with its settings', async () => {
-  const names = await loadThemes(root, ['extras/uni-leipzig/themes']);
-  assert.ok(names.includes('projektheft'));
-  const t = themeList().find((x) => x.name === 'projektheft');
-  assert.deepEqual(t.fields.map((f) => f.key), ['series', 'title', 'institute']);
-  assert.equal(getTheme('projektheft').dir, '/extras/uni-leipzig/themes/projektheft');
+test('the example design loads with its settings', async () => {
+  const names = await loadThemes(root, ['themes']);
+  assert.ok(names.includes('beispiel'));
+  const t = themeList().find((x) => x.name === 'beispiel');
+  assert.deepEqual(t.fields.map((f) => f.key), ['series', 'title', 'footer', 'color']);
+  assert.equal(getTheme('beispiel').dir, '/themes/beispiel');
+});
+
+test('the example design only takes a checked colour', async () => {
+  await loadThemes(root, ['themes']);
+  const t = { width: 210, height: 297, mirrored: true, cover: false, backCover: false, S: JSON.stringify, image: () => 'none' };
+  const page = (color) => getTheme('beispiel').page({ title: 'T', themeOptions: { color } }, t);
+  assert.match(page('#00aa11'), /rgb\("#00aa11"\)/);
+  assert.match(page('red) + eval("x")'), /rgb\("#2f6fdb"\)/);
 });
 
 test('a design without page() or named "custom" is not loaded', async () => {

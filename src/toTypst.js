@@ -366,11 +366,11 @@ function punchMark() {
   return `context place(top + (${side}), dx: ${dx}, dy: ${y}mm, line(length: 5mm, stroke: 0.6pt + luma(140)))`;
 }
 
-/** What a page design (src/themes.js) gets to build its page arguments: page size, the
- *  booklet's cover pages, a Typst string literal and an image from a data URL. */
+/** What a page design (src/themes.js) gets to build its page arguments: page size, double-sided
+ *  or not, the booklet's cover pages, a Typst string literal and an image from a data URL. */
 function pageTools(doc, ctx) {
   return {
-    width: PAGE_W, height: PAGE_H, cover: !!coverOffset(doc), backCover: !!backCover(doc), S,
+    width: PAGE_W, height: PAGE_H, mirrored: MIRRORED, cover: !!coverOffset(doc), backCover: !!backCover(doc), S,
     image(src, heightMm) {
       const img = decodeImage(src);
       return img ? `image(${S(ctx.addAsset(img.bytes, img.ext))}, height: ${heightMm}mm)` : 'none';

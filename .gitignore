@@ -1,4 +1,7 @@
 node_modules/
+# installed page designs (themes/README.md stays)
+themes/*/
+!themes/beispiel/
 out/
 
 # local tooling and scratch files

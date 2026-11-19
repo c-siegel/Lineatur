@@ -53,7 +53,7 @@ Der Server nimmt nur Verbindungen vom eigenen Rechner an. Mit `HOST=0.0.0.0 npm 
 
 | Befehl | Zweck |
 |---|---|
-| `npm test` | Unit-Tests (`test/*.test.mjs`) und Smoke-Test: kompiliert die Vorlagen nach `out/` (PDF, Broschüre, HTML) |
+| `npm test` | Unit-Tests (`test/*.test.mjs`) und Smoke-Test: kompiliert die Vorlagen nach `out/` (PDF, Broschüre, HTML); liegt `lineatur-uni-leipzig` neben diesem Ordner (oder in `LINEATUR_EXTRAS`), auch dessen Vorlage |
 | `npm run fonts` | lädt die offenen Schriften in `fonts/` neu (sind bereits enthalten) |
 | `npm run guide` | baut die Anleitung neu (`samples/anleitung.json`, `public/guide/anleitung.html`) |
 | `npm run app` | startet die Desktop-App in einem Electron-Fenster (Entwicklung) |
@@ -109,9 +109,9 @@ Die Broschüre entsteht durch einen zweiten Typst-Lauf, der die A5-Seiten als Ve
 ## Seitendesign und Erweiterungen
 
 - **Eigenes Design** (*Dokument → Seite → Seitendesign*): Hauptfarbe, Zweitfarbe, Form am Seitenrand, Logo und Kopfzeile. Auf doppelseitigen Seiten wird gespiegelt. Das Design ist im Dokument gespeichert.
-- **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die portable `.exe` lädt zusätzlich einen Ordner `themes` neben der `.exe` (Umgebungsvariable `LINEATUR_THEMES`). Die Veröffentlichung enthält keine Add-ons. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
+- **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die portable `.exe` lädt zusätzlich einen Ordner `themes` neben der `.exe` (Umgebungsvariable `LINEATUR_THEMES`). Mitgeliefert wird nur das Beispiel „Randleiste“ (`themes/beispiel/`) als Vorlage für eigene Designs. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
 - **Design importieren** (*Dokument → Seite → Seitendesign → Design importieren …*): nimmt ein Design als `.zip` an (die Dateien des Designordners, ohne Unterordner) und lädt es sofort, ohne Neustart. Es landet in `LINEATUR_THEMES` (portable App: `themes` neben der `.exe`), sonst in `themes/`. Dort installierte Designs lassen sich auch wieder entfernen. Nur bei lokalem Server, siehe [Sicherheit](#sicherheit).
-- **`extras/`:** Material für einzelne Einrichtungen, das nicht zur allgemeinen Version gehört. `extras/uni-leipzig/` enthält das Design „Projektheft“ und eine A5-Broschürenvorlage; Installation in [extras/uni-leipzig/README.md](extras/uni-leipzig/README.md).
+- **Material für einzelne Einrichtungen** gehört nicht zur allgemeinen Version. Das Design „Projektheft“ und die A5-Broschürenvorlage des Schülerlabors der Universität Leipzig liegen in einem eigenen, nicht öffentlichen Repository (`lineatur-uni-leipzig`) und werden im Team weitergegeben.
 
 ## Sicherheit
 
@@ -142,7 +142,6 @@ public/help.js     Erklärungen aller Bausteine (Inspektor und Anleitung)
 public/store.js    Bibliothek in IndexedDB
 electron/          Desktop-App (main.cjs, icon.png)
 themes/            Seitendesign-Add-ons
-extras/            Material für einzelne Einrichtungen
 fonts/             offene Schriften
 test/              Unit-Tests (node:test)
 ```

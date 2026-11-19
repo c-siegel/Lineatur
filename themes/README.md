@@ -1,12 +1,13 @@
 # Seitendesigns (Erweiterungen)
 
 Jeder Unterordner hier ist ein Seitendesign, das unter Dokument → Seite → Seitendesign erscheint.
-Lineatur lädt sie beim Start (`src/themes.js`). Die allgemeine Ausgabe bringt keine mit; ohne
-Erweiterung gibt es „keines“ und „Eigenes Design“ (aus Einstellungen, ohne Code).
+Lineatur lädt sie beim Start (`src/themes.js`). Mitgeliefert wird nur das Beispiel
+[„Randleiste“](beispiel/README.md); außerdem gibt es immer „keines“ und „Eigenes Design“ (aus
+Einstellungen, ohne Code).
 
-Ein Design besteht aus einer `theme.js` und den Typst-Dateien, die sie importiert. Ein Beispiel mit
-Erklärung liegt in `extras/uni-leipzig/themes/projektheft/`; zum Installieren den Ordner hierher
-kopieren und Lineatur neu starten.
+Ein Design besteht aus einer `theme.js` und den Typst-Dateien, die sie importiert. Am einfachsten
+`beispiel/` kopieren und abwandeln, oder einen fertigen Designordner hierher kopieren, dann Lineatur
+neu starten. Selbst installierte Designs sind per `.gitignore` vom Repository ausgenommen.
 
 Ohne Neustart geht es über **Dokument → Seite → Seitendesign → Design importieren …**: Den Designordner
 als `.zip` packen (die Dateien direkt oder in genau einem Ordner, keine Unterordner; erlaubt sind
@@ -31,5 +32,5 @@ export default {
 };
 ```
 
-`page` liefert die Argumente für `#set page(..)`; `t` bietet `width`, `height`, `cover`, `backCover`,
+`page` liefert die Argumente für `#set page(..)`; `t` bietet `width`, `height`, `mirrored` (doppelseitig), `cover`, `backCover`,
 `S` (Typst-Zeichenkette) und `image(dataUrl, höheMm)`.
