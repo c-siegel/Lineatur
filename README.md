@@ -32,7 +32,7 @@ Blockeditor im Browser → JSON-Dokument → Typst → PDF, Live-Vorschau oder i
 
 ## Installation: Desktop-App (Windows)
 
-Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie lässt sich z. B. auf einem USB-Stick mitführen. Sie kann [hier](https://github.com/c-siegel/Lineatur/releases/tag/v1.0) gedownloadet werden.
+Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie lässt sich z. B. auf einem USB-Stick mitführen. Sie kann [hier](https://github.com/c-siegel/Lineatur/releases/) gedownloadet werden.
 
 - Startet beim ersten Mal nach wenigen Sekunden, entpackt sich dafür in einen Temp-Ordner.
 - Der Server läuft nur auf `127.0.0.1:37615`.
