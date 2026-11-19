@@ -2,7 +2,8 @@
 //
 // The server only listens on 127.0.0.1 and always on the same port: the browser storage (the
 // document library) belongs to that exact address, so a changing port would look like an empty library.
-// The portable .exe keeps its data in "Lineatur-Daten" next to itself, so it can live on a USB stick.
+// The portable .exe and the AppImage keep their data in "Lineatur-Daten" next to themselves, so
+// they can live on a USB stick.
 
 const { app, BrowserWindow, dialog, shell } = require('electron');
 const fs = require('node:fs');
@@ -12,8 +13,10 @@ const { pathToFileURL } = require('node:url');
 const PORT = 37615;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 
-// electron-builder's portable target sets this to the folder of the .exe
-const portableDir = process.env.PORTABLE_EXECUTABLE_DIR;
+// electron-builder's portable target sets PORTABLE_EXECUTABLE_DIR to the folder of the .exe,
+// an AppImage sets APPIMAGE to its own file
+const portableDir = process.env.PORTABLE_EXECUTABLE_DIR
+  || (process.env.APPIMAGE && path.dirname(process.env.APPIMAGE));
 if (portableDir) {
   const dataDir = path.join(portableDir, 'Lineatur-Daten');
   try {
@@ -23,7 +26,7 @@ if (portableDir) {
   } catch {
     // read-only location (e.g. a network share): fall back to the user profile
   }
-  // page designs the user puts into "themes" next to the .exe (see themes/README.md)
+  // page designs the user puts into "themes" next to the app file (see themes/README.md)
   process.env.LINEATUR_THEMES = path.join(portableDir, 'themes');
 }
 

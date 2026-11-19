@@ -4,6 +4,7 @@ Die Version wird nur in `package.json` gesetzt. Dashboard, Server, HTML-Export u
 
 ## Unveröffentlicht
 
+- **Linux-AppImage**: `npm run dist:linux` baut `Lineatur-<version>-x86_64.AppImage`. Sie speichert wie die portable `.exe` in `Lineatur-Daten` neben sich und lädt Seitendesigns aus einem Ordner `themes` daneben.
 - **Beispieldesign „Randleiste“** (`themes/beispiel/`): farbige Leiste am äußeren Rand mit Seitenzahl, Titel und Reihe in der Kopfzeile, Fußzeile mit Text und Logo, Farbe einstellbar. Kommentiert als Vorlage für eigene Designs; Titel- und Rückseite einer Broschüre bleiben frei, auf doppelseitigen Seiten wechselt die Leiste nach außen. Designs erhalten dafür `t.mirrored`.
 - **Uni-Leipzig-Material ausgelagert**: Das Design „Projektheft“ und die Vorlage des Schülerlabors liegen nicht mehr unter `extras/uni-leipzig/` und `themes/projektheft/`, sondern im eigenen Repository `lineatur-uni-leipzig`. Die Tests nutzen dafür das neue Beispieldesign; der Smoke-Test prüft die Projektheft-Vorlage weiter, wenn das Repository daneben liegt.
 

@@ -22,7 +22,8 @@
     "fonts": "node scripts/fetch-fonts.mjs",
     "guide": "node scripts/build-guide.mjs",
     "app": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win portable",
+    "dist:linux": "electron-builder --linux AppImage"
   },
   "dependencies": {
     "@myriaddreamin/typst-ts-node-compiler": "^0.7.0",
@@ -69,6 +70,22 @@
     },
     "portable": {
       "artifactName": "Lineatur-${version}-portable.exe"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "electron/icon.png",
+      "category": "Education",
+      "synopsis": "Arbeitsblätter ohne Programmieren gestalten"
+    },
+    "appImage": {
+      "artifactName": "Lineatur-${version}-x86_64.AppImage"
     }
   }
 }

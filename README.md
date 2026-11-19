@@ -40,6 +40,18 @@ Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie läss
 - Dokumente aus der Browser-Version werden nicht übernommen: als JSON exportieren und in der App importieren.
 - Die `.exe` ist nicht signiert. SmartScreen zeigt beim ersten Start **Weitere Informationen → Trotzdem ausführen**. Manche Schulnetze blockieren unsignierte Programme; dann die Browser-Version (`npm start`) nutzen.
 
+## Installation: Desktop-App (Linux)
+
+Die AppImage läuft ohne Installation auf den meisten aktuellen Distributionen (x64) und verhält sich wie die portable `.exe`: Die Dokumentbibliothek liegt in `Lineatur-Daten`, eigene Seitendesigns in `themes` neben der AppImage-Datei.
+
+```bash
+chmod +x Lineatur-*-x86_64.AppImage
+./Lineatur-*-x86_64.AppImage
+```
+
+- AppImages brauchen FUSE 2. Fehlt es (Meldung „dlopen(): error loading libfuse.so.2“), unter Ubuntu/Debian `sudo apt install libfuse2t64` (vor Ubuntu 24.04: `libfuse2`) installieren.
+- Bricht der Start mit einem Sandbox-Fehler ab (Ubuntu 24.04 und neuer, AppArmor), mit `./Lineatur-*-x86_64.AppImage --no-sandbox` starten.
+
 ## Installation: Browser-App (Windows, Mac, Linux)
 
 Voraussetzung: Node.js 20 oder neuer. Eine Typst-Installation ist nicht nötig, der Compiler kommt als npm-Paket.
@@ -57,7 +69,8 @@ Der Server nimmt nur Verbindungen vom eigenen Rechner an. Mit `HOST=0.0.0.0 npm 
 | `npm run fonts` | lädt die offenen Schriften in `fonts/` neu (sind bereits enthalten) |
 | `npm run guide` | baut die Anleitung neu (`samples/anleitung.json`, `public/guide/anleitung.html`) |
 | `npm run app` | startet die Desktop-App in einem Electron-Fenster (Entwicklung) |
-| `npm run dist` | baut `dist/Lineatur-<version>-portable.exe` (Windows x64) |
+| `npm run dist` | baut `dist/Lineatur-<version>-portable.exe` (Windows x64, unter Windows bauen) |
+| `npm run dist:linux` | baut `dist/Lineatur-<version>-x86_64.AppImage` (Linux x64, unter Linux bauen) |
 
 ## Desktop-App
 
@@ -68,6 +81,8 @@ Die portable `.exe` braucht keine Installation und keine Admin-Rechte. Sie läss
 - Die Dokumentbibliothek liegt im Ordner `Lineatur-Daten` neben der `.exe` (bei schreibgeschütztem Ordner im Benutzerprofil).
 - Dokumente aus der Browser-Version werden nicht übernommen: als JSON exportieren und in der App importieren.
 - Die `.exe` ist nicht signiert. SmartScreen zeigt beim ersten Start **Weitere Informationen → Trotzdem ausführen**. Manche Schulnetze blockieren unsignierte Programme; dann die Browser-Version (`npm start`) nutzen.
+- Für Linux gibt es eine AppImage mit demselben Verhalten, siehe [Desktop-App (Linux)](#installation-desktop-app-linux).
+- Der Typst-Compiler ist ein natives Modul; npm installiert nur die Variante des eigenen Systems. Darum die `.exe` unter Windows und die AppImage unter Linux bauen.
 
 ## Funktionen
 
@@ -109,8 +124,8 @@ Die Broschüre entsteht durch einen zweiten Typst-Lauf, der die A5-Seiten als Ve
 ## Seitendesign und Erweiterungen
 
 - **Eigenes Design** (*Dokument → Seite → Seitendesign*): Hauptfarbe, Zweitfarbe, Form am Seitenrand, Logo und Kopfzeile. Auf doppelseitigen Seiten wird gespiegelt. Das Design ist im Dokument gespeichert.
-- **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die portable `.exe` lädt zusätzlich einen Ordner `themes` neben der `.exe` (Umgebungsvariable `LINEATUR_THEMES`). Mitgeliefert wird nur das Beispiel „Randleiste“ (`themes/beispiel/`) als Vorlage für eigene Designs. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
-- **Design importieren** (*Dokument → Seite → Seitendesign → Design importieren …*): nimmt ein Design als `.zip` an (die Dateien des Designordners, ohne Unterordner) und lädt es sofort, ohne Neustart. Es landet in `LINEATUR_THEMES` (portable App: `themes` neben der `.exe`), sonst in `themes/`. Dort installierte Designs lassen sich auch wieder entfernen. Nur bei lokalem Server, siehe [Sicherheit](#sicherheit).
+- **Designs als Add-ons:** Jeder Ordner in `themes/` mit einer `theme.js` und Typst-Dateien wird beim Start geladen (`src/themes.js`). Format: [themes/README.md](themes/README.md). Die portable `.exe` und die AppImage laden zusätzlich einen Ordner `themes` neben sich (Umgebungsvariable `LINEATUR_THEMES`). Mitgeliefert wird nur das Beispiel „Randleiste“ (`themes/beispiel/`) als Vorlage für eigene Designs. Ein Dokument mit fehlendem Design öffnet sich ohne dieses Design und behält seinen Inhalt.
+- **Design importieren** (*Dokument → Seite → Seitendesign → Design importieren …*): nimmt ein Design als `.zip` an (die Dateien des Designordners, ohne Unterordner) und lädt es sofort, ohne Neustart. Es landet in `LINEATUR_THEMES` (portable App und AppImage: `themes` neben der App-Datei), sonst in `themes/`. Dort installierte Designs lassen sich auch wieder entfernen. Nur bei lokalem Server, siehe [Sicherheit](#sicherheit).
 - **Material für einzelne Einrichtungen** gehört nicht zur allgemeinen Version. Das Design „Projektheft“ und die A5-Broschürenvorlage des Schülerlabors der Universität Leipzig liegen in einem eigenen, nicht öffentlichen Repository (`lineatur-uni-leipzig`) und werden im Team weitergegeben.
 
 ## Sicherheit
